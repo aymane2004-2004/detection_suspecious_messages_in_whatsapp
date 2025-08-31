@@ -1,0 +1,41 @@
+# === Build files ===
+build/
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dll
+
+# === Logs ===
+*.log
+logs/
+
+# === Output files ===
+outputs/
+*.csv
+*.tsv
+
+# === Backup & temp ===
+*~
+*.swp
+*.tmp
+*.bak
+
+# === OS / Editor files ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === CMake / Make ===
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# === VS Code ===
+.vscode/
+
+# === Data ===
+data/
