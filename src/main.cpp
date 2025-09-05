@@ -1,5 +1,17 @@
+#include "mainwindow.h"
+
+#include <QApplication>
+
+/*int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
+    MainWindow w;
+    w.show();
+    return a.exec();
+}*/
+
 #include <iostream>
-#include "metaextractor.hpp"
+#include "metaextractor.h"
 #include <string>
 #include <set>
 #include <filesystem>  // C++17
@@ -58,40 +70,40 @@ int main() {
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
         switch (choice) {
-            case 1:
-                cout << "\n[+] Affichage de tous les messages :\n";
-                extractor.printAll(metas);
-                break;
+        case 1:
+            cout << "\n[+] Affichage de tous les messages :\n";
+            extractor.printAll(metas);
+            break;
 
-            case 2: {
-                cout << "\n[!] Détection des messages suspects :\n";
-                auto flagged = extractor.detectSuspiciousMessages(metas, suspiciousWords);
-                extractor.printSuspiciousMessages(flagged);
-                break;
-            }
+        case 2: {
+            cout << "\n[!] Détection des messages suspects :\n";
+            auto flagged = extractor.detectSuspiciousMessages(metas, suspiciousWords);
+            extractor.printSuspiciousMessages(flagged);
+            break;
+        }
 
-            case 3: {
-                string outputFile = "outputs/all_messages.csv";
-                extractor.exportToCSV(metas, outputFile);
-                extractor.logExport(metas, outputFile);
-                break;
-            }
+        case 3: {
+            string outputFile = "outputs/all_messages.csv";
+            extractor.exportToCSV(metas, outputFile);
+            extractor.logExport(metas, outputFile);
+            break;
+        }
 
-            case 4: {
-                string outputFile = "outputs/suspicious_messages.csv";
-                auto flagged = extractor.detectSuspiciousMessages(metas, suspiciousWords);
-                extractor.exportToCSV(flagged, outputFile);
-                extractor.logExport(flagged, outputFile);
-                break;
-            }
+        case 4: {
+            string outputFile = "outputs/suspicious_messages.csv";
+            auto flagged = extractor.detectSuspiciousMessages(metas, suspiciousWords);
+            extractor.exportToCSV(flagged, outputFile);
+            extractor.logExport(flagged, outputFile);
+            break;
+        }
 
-            case 0:
-                cout << "[+] Au revoir !\n";
-                break;
+        case 0:
+            cout << "[+] Au revoir !\n";
+            break;
 
-            default:
-                cout << "[!] Choix invalide. Réessayez.\n";
-                break;
+        default:
+            cout << "[!] Choix invalide. Réessayez.\n";
+            break;
         }
         cout << endl;
     } while (choice != 0);

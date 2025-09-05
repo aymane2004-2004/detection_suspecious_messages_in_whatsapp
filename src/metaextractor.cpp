@@ -1,4 +1,4 @@
-#include "metaextractor.hpp"
+#include "metaextractor.h"
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -82,14 +82,14 @@ void MetaExtractor::printAll(const vector<Metadata>& metas) {
 // Conversion du type de message en string
 string MetaExtractor::messageTypeToString(MessageType type) {
     switch (type) {
-        case TEXT: return "Texte";
-        case LINK: return "Lien";
-        case MEDIA_OMITTED: return "Média omis";
-        case IMAGE: return "Image";
-        case VIDEO: return "Vidéo";
-        case AUDIO: return "Audio";
-        case DOCUMENT: return "Document";
-        default: return "Inconnu";
+    case TEXT: return "Texte";
+    case LINK: return "Lien";
+    case MEDIA_OMITTED: return "Média omis";
+    case IMAGE: return "Image";
+    case VIDEO: return "Vidéo";
+    case AUDIO: return "Audio";
+    case DOCUMENT: return "Document";
+    default: return "Inconnu";
     }
 }
 
