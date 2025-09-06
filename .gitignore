@@ -1,5 +1,6 @@
 # === Build files ===
 build/
+out/
 *.o
 *.obj
 *.exe
@@ -33,9 +34,33 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+*.ninja
+*.ninja_deps
+*.ninja_log
 
-# === VS Code ===
+# === Qt / Qt Creator ===
+*.user
+*.pro.user*
+*.moc
+*.qrc.cpp
+*.qrc.o
+.qtc/
+.qtc_clangd/
+.qt/
+
+# === Visual Studio / VS Code ===
+*.vcxproj.*
+*.sln
+*.suo
+*.filters
+*.opensdf
+*.sdf
+*.cache
+*.ipch
+*.iobj
+*.ipdb
 .vscode/
+.vs/
 
 # === Data ===
 data/
