@@ -1,4 +1,4 @@
-#include "metaextractor.hpp"
+#include "metaextractor.h"
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -82,14 +82,14 @@ void MetaExtractor::printAll(const vector<Metadata>& metas) {
 // Conversion du type de message en string
 string MetaExtractor::messageTypeToString(MessageType type) {
     switch (type) {
-        case TEXT: return "Texte";
-        case LINK: return "Lien";
-        case MEDIA_OMITTED: return "Média omis";
-        case IMAGE: return "Image";
-        case VIDEO: return "Vidéo";
-        case AUDIO: return "Audio";
-        case DOCUMENT: return "Document";
-        default: return "Inconnu";
+    case TEXT: return "Texte";
+    case LINK: return "Lien";
+    case MEDIA_OMITTED: return "Média omis";
+    case IMAGE: return "Image";
+    case VIDEO: return "Vidéo";
+    case AUDIO: return "Audio";
+    case DOCUMENT: return "Document";
+    default: return "Inconnu";
     }
 }
 
@@ -127,9 +127,11 @@ void MetaExtractor::logExport(const vector<Metadata>& metas, const string& outpu
 
     auto now = chrono::system_clock::now();
     time_t now_c = chrono::system_clock::to_time_t(now);
-    logFile << "[" << put_time(localtime(&now_c), "%Y-%m-%d %H:%M:%S") << "] "
-            << "Exportation de " << metas.size() << " messages vers "
-            << outputPath << endl;
+    struct tm localTime;
+    localtime_s(&localTime, &now_c); // safer version on Windows
+    logFile << "[" << put_time(&localTime, "%Y-%m-%d %H:%M:%S") << "] "
+        << "Exportation de " << metas.size() << " messages vers "
+        << outputPath << endl;
     logFile.close();
 }
 
@@ -144,7 +146,8 @@ set<string> MetaExtractor::loadSuspiciousWords(const string& filepath) {
 
     string line;
     while (getline(file, line)) {
-        line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
+        //line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
+        line.erase(remove_if(line.begin(), line.end(), [](unsigned char c){ return isspace(c); }), line.end());
         if (!line.empty()) words.insert(line);
     }
     return words;

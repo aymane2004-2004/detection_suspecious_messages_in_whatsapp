@@ -1,5 +1,5 @@
-#ifndef META_EXTRACTOR_HPP
-#define META_EXTRACTOR_HPP
+#ifndef META_EXTRACTOR_H
+#define META_EXTRACTOR_H
 
 #include <string>
 #include <vector>
@@ -40,7 +40,7 @@ public:
     std::vector<Metadata> detectSuspiciousMessages(
         const std::vector<Metadata>& metas,
         const std::set<std::string>& suspiciousWords
-    );
+        );
     void printSuspiciousMessages(const std::vector<Metadata>& flaggedMessages);
 
 private:
@@ -48,4 +48,4 @@ private:
     std::string messageTypeToString(MessageType type);
 };
 
-#endif // META_EXTRACTOR_HPP
+#endif // META_EXTRACTOR_H
