@@ -1,5 +1,6 @@
 # === Build files ===
 build/
+out/
 *.o
 *.obj
 *.exe
@@ -59,6 +60,7 @@ Makefile
 *.iobj
 *.ipdb
 .vscode/
+.vs/
 
 # === Data ===
 data/
