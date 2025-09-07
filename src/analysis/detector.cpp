@@ -1,4 +1,4 @@
-#include "metaextractor.h"
+#include "analysis/detector.h"
 #include <fstream>
 #include <iostream>
 #include <regex>

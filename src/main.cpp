@@ -1,5 +1,6 @@
 #include <iostream>
-#include "metaextractor.h"
+#include "analysis/detector.h"
+#include "core/suspicious_words.h"
 #include <string>
 #include <set>
 #include <vector>
@@ -32,19 +33,20 @@ int main() {
     std::cout << "Entrez le chemin du fichier WhatsApp exporte : \n";
     std::getline(std::cin, whatsappFile);
 
-    metas = extractor.extract("C:\\Users\\hp7\\Desktop\\detection_suspecious_messages_in_whatsapp\\data\\chat.txt");
+    metas = extractor.extract("C:\\Users\\hp7\\Desktop\\detection_suspecious_messages_in_whatsapp\\data\\WhatsApp Chat with.txt");
     if (metas.empty()) {
         std::cerr << "[!] Aucun message n'a été extrait. Vérifiez le fichier.\n";
         return 1;
     }
 
-    std::string suspiciousFile = "C:\\Users\\hp7\\Desktop\\detection_suspecious_messages_in_whatsapp\\mots suspects\\mots.txt";
+    std::string suspiciousFile = "C:\\Users\\hp7\\Desktop\\detection_suspecious_messages_in_whatsapp\\data\\suspicious_words_fr.txt";
     if (!std::filesystem::exists(suspiciousFile)) {
         std::cerr << "[!] Le fichier des mots suspects est introuvable : " << suspiciousFile << std::endl;
         return 1;
     }
 
     suspiciousWords = extractor.loadSuspiciousWords(suspiciousFile);
+	//suspiciousWords = SuspiciousWords::frenchSuspiciousWords;
     if (suspiciousWords.empty()) {
         std::cerr << "[!] Aucun mot suspect chargé. La détection ne fonctionnera pas.\n";
     }

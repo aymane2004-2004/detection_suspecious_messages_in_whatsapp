@@ -1,5 +1,5 @@
-#ifndef META_EXTRACTOR_H
-#define META_EXTRACTOR_H
+#ifndef DETECTOR_H
+#define DETECTOR_H
 
 #include <string>
 #include <vector>
@@ -48,4 +48,4 @@ private:
     std::string messageTypeToString(MessageType type);
 };
 
-#endif // META_EXTRACTOR_H
+#endif // DETECTOR_H
