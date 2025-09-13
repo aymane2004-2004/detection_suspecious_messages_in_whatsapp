@@ -1,5 +1,5 @@
-#include "../include/analysis/detector.h"
-#include "../include/core/suspicious_words.h"
+#include "analysis/detector.h"
+#include "core/suspicious_words.h"
 
 #include <iostream>
 #include <string>
@@ -11,9 +11,10 @@
 #include <locale>
 #include <codecvt>
 
-//#include <mz.h>
-//#include <mz_zip.h>
-//#include <mz_zip_rw.h>
+#include <minizip-ng/mz.h>
+#include <minizip-ng/mz_strm.h>
+#include <minizip-ng/mz_zip.h>
+#include <minizip-ng/mz_zip_rw.h>
 
 void printMenu(int menuNumber, int& choice, int erase) {
     if (erase) {
@@ -76,29 +77,34 @@ int main() {
     if (choice == 1) {
 		std::cout << "Une fenêtre s'est ouverte, sélectionnez le fichier ZIP exporté depuis WhatsApp.\n\n";
         // Structure OPENFILENAME pour configurer le dialogue
-        OPENFILENAME ofn;
+        OPENFILENAME ofn = { 0 };
         wchar_t szFile[MAX_PATH] = { 0 };
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = nullptr;
         ofn.lpstrFile = szFile;
-        ofn.nMaxFile = sizeof(szFile);
+        ofn.nMaxFile = MAX_PATH;
         ofn.lpstrFilter = L"ZIP Files\0*.zip\0All Files\0*.*\0";
         ofn.nFilterIndex = 1;
         ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
         if (GetOpenFileName(&ofn) == TRUE) {
-            zipPath = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(ofn.lpstrFile);
-            std::wcout << L"Fichier ZIP sélectionné : " << szFile << L"\n\n";
-            // Convert wide string (LPWSTR) to UTF-8 std::string
-            int size_needed = WideCharToMultiByte(CP_UTF8, 0, ofn.lpstrFile, -1, nullptr, 0, nullptr, nullptr);
-            std::string utf8Path(size_needed - 1, 0); // exclude null terminator
-            WideCharToMultiByte(CP_UTF8, 0, ofn.lpstrFile, -1, &utf8Path[0], size_needed, nullptr, nullptr);
-            zipPath = utf8Path;
-        }
-        else {
-            std::cout << "Aucun fichier sélectionné." << std::endl;
+            int size_needed = WideCharToMultiByte(CP_UTF8, 0, szFile, -1, nullptr, 0, nullptr, nullptr);
+            if (size_needed > 0) {
+                zipPath.resize(size_needed - 1);
+                WideCharToMultiByte(CP_UTF8, 0, szFile, -1, &zipPath[0], size_needed, nullptr, nullptr);
+            }
+            std::wcout << L"Fichier ZIP sélectionné : " << szFile << L"\n\n"; std::cout << zipPath;
+        } else {
+            DWORD err = CommDlgExtendedError();
+            if (err != 0) {
+                std::cout << "Erreur lors de l'ouverture du dialogue de fichier. Code : " << err << std::endl;
+            } else {
+                std::cout << "Aucun fichier sélectionné." << std::endl;
+            }
             return 1;
         }
         std::cout << "\n\n";
-		printMenu(2, choice, 1);
+		printMenu(2, choice, 0);
 		langageToScan = choice;
         std::cout << "\n\n";
 		printMenu(3, choice, 1);
