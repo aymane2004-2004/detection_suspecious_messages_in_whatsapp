@@ -1,66 +1,69 @@
-# === Build files ===
+# Visual Studio specific
+.vs/
+*.vcxproj.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
 build/
-out/
-*.o
-*.obj
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio Code
+.vscode/
+
+# C++ specific
 *.exe
-*.out
-*.a
-*.so
 *.dll
+*.lib
+*.obj
+*.pch
+*.pdb
+*.idb
+*.ipch
 
-# === Logs ===
+# Others
 *.log
-logs/
-
-# === Output files ===
-outputs/
-*.csv
-*.tsv
-
-# === Backup & temp ===
-*~
-*.swp
+*.tlog
+*.lastbuildstate
+*.iobj
+*.ipdb
+*.sbr
+*.tlb
 *.tmp
-*.bak
+*.tmp_proj
+*.cache
+*.ilk
+*.manifest
+*.vspscc
+*.vssscc
+_ReSharper*/
 
-# === OS / Editor files ===
-.DS_Store
-Thumbs.db
-desktop.ini
+# JetBrains Rider (if used)
+.idea/
+*.sln.iml
 
-# === CMake / Make ===
+# CMake (if used)
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
-*.ninja
-*.ninja_deps
-*.ninja_log
+*.dir/
 
-# === Qt / Qt Creator ===
-*.user
-*.pro.user*
-*.moc
-*.qrc.cpp
-*.qrc.o
-.qtc/
-.qtc_clangd/
-.qt/
+# NuGet packages
+*.nupkg
+packages/
 
-# === Visual Studio / VS Code ===
-*.vcxproj.*
-*.sln
-*.suo
-*.filters
-*.opensdf
-*.sdf
-*.cache
-*.ipch
-*.iobj
-*.ipdb
-.vscode/
-.vs/
+# External dependencies (optional, if you use vcpkg/conan)
+vcpkg_installed/
+conanbuildinfo.txt
+conaninfo.txt
 
-# === Data ===
+
 data/
