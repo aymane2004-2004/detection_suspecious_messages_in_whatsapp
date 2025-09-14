@@ -23,6 +23,7 @@
     <ClCompile Include="src\core\conversation.cpp" />
     <ClCompile Include="src\core\message.cpp" />
     <ClCompile Include="src\core\suspicious_words.cpp" />
+    <ClCompile Include="src\io\exportor.cpp" />
     <ClCompile Include="src\io\logger.cpp" />
     <ClCompile Include="src\io\parser.cpp" />
     <ClCompile Include="src\io\report.cpp" />
@@ -33,11 +34,12 @@
     <ClInclude Include="include\core\conversation.h" />
     <ClInclude Include="include\core\message.h" />
     <ClInclude Include="include\core\suspicious_words.h" />
+    <ClInclude Include="include\io\exporter.h" />
     <ClInclude Include="include\io\logger.h" />
     <ClInclude Include="include\io\parser.h" />
     <ClInclude Include="include\io\report.h" />
     <ClInclude Include="include\utils\file_utils.h" />
-    <ClInclude Include="include\utils\string_utils.h" />
+    <ClInclude Include="include\utils\wstring_utils.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -123,14 +125,16 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\include;C:\vcpkg\installed\x64-windows-static\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\vcpkg\installed\x64-windows-static\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>minizip-ng.lib;zlib.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -141,10 +145,16 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
