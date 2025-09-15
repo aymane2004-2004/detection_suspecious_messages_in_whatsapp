@@ -41,11 +41,12 @@ void printMenu(int& step, int& choice) {
         std::cout << " [3] Scanner les mots suspets en anglais et en français\n";
         break;
     case 3:
-        maxPossibleChoice = 3;
+        maxPossibleChoice = 4;
         std::cout << " [1] Scanner que la conversation\n";
-        std::cout << " [2] Scanner que les media (txt,pdf etc)\n";
-        std::cout << " [3] Scanner la conversation et les media\n";
-        break;
+        std::cout << " [2] Scanner que les médias (mp4, jpeg ...)\n";
+        std::cout << " [3] Scanner que les documents (txt, pdf ...)\n";
+        std::cout << " [4] Faire un scan totale\n";
+        break;  
     case 4:
         maxPossibleChoice = 4;
         std::cout << " [1] Exporter tous les messages vers CSV\n";
@@ -117,17 +118,29 @@ std::wstring FindMatchingTextFile(const std::wstring& folderPath) {
 
 int main() {
     SetConsoleOutputCP(CP_UTF8);
-    // variable initiole
+	// message de bienvenue
+    char welcomeMessage[] = "Ceci est un project academic open-source\nVous pouvez trouver le code source sur ce lien:\ngithub.com\n";
+    for (char c : welcomeMessage) {
+        if (c == '\n')
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::cout << c << std::flush;
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	}
+    std::system("pause");
+	std::system("cls");
+    
+    // variable pour les etapes
     int step = 1;
     int choice = 0;
-    // variable step 1
+    // parametres du scan
     std::wstring selectedFolderPath = L"empty"; // Variable to store the selected folder path
     std::wstring matchingTextFilePath = L"empty"; // Variable to store the path to the text file with the same name
     Conversation conversation;
-	// variable step 2
-    int langageToScan = 0; // 1: anglais, 2: français, 3: les deux
-    int contentToScan = 0; // 1: conversation, 2: media, 3: les deux
-	// variable step 3
+    enum Langage { ENGLISH = 1, FRENCH = 2, BOTH_LANGAGE = 3 };
+    enum Content { CONVERSATION = 1, MEDIA = 2, DOCUMENT = 3, ALL_CONTENT = 3 };
+    Langage langageToScan = Langage::ENGLISH;
+    Content contentToScan = Content::CONVERSATION;
+	
 
     do {
         switch (step) {
@@ -214,13 +227,13 @@ int main() {
         //step 2
         case 2:
             printMenu(step, choice);
-            langageToScan = choice;
+            langageToScan = (Langage)choice;
             std::wcout << L"\n\n";
             break;
 		//step 3
 		case 3:
             printMenu(step, choice);
-            contentToScan = choice;
+            contentToScan = (Content)choice;
             std::wcout << L"\n\n";
 
             //detection des messages suspets
