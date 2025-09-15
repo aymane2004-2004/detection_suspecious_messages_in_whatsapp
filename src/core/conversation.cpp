@@ -39,3 +39,28 @@ std::vector<Message> Conversation::filterByType(MessageType type) const
 
     return filtered;
 }
+
+// -------------------- Count Messages by Type --------------------
+std::map<MessageType, int> Conversation::countMessagesByType() const
+{
+    std::map<MessageType, int> typeCounts;
+
+    // Initialize all message types with count 0
+    typeCounts[MessageType::TEXT] = 0;
+    typeCounts[MessageType::LINK] = 0;
+    typeCounts[MessageType::TEXT_LINK] = 0;
+    typeCounts[MessageType::MEDIA_OMITTED] = 0;
+    typeCounts[MessageType::IMAGE] = 0;
+    typeCounts[MessageType::VIDEO] = 0;
+    typeCounts[MessageType::AUDIO] = 0;
+    typeCounts[MessageType::DOCUMENT] = 0;
+    typeCounts[MessageType::UNKNOWN] = 0;
+
+    // Count occurrences of each message type
+    for (const auto& message : messages) {
+        MessageType type = message.getType();
+        typeCounts[type]++;
+    }
+
+    return typeCounts;
+}

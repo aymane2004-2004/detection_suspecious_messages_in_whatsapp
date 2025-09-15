@@ -8,6 +8,7 @@
 enum class MessageType {
     TEXT,
     LINK,
+    TEXT_LINK,  // New type for text mixed with one or multiple links
     MEDIA_OMITTED,
     IMAGE,
     VIDEO,

@@ -17,6 +17,8 @@
 #include <filesystem>  // Ensure this is included before usage
 #include <thread>   // pour std::this_thread::sleep_for
 #include <chrono>   // pour std::chrono::seconds, milliseconds, etc.
+#include <map>
+#include <iomanip>  // For std::setw
 
 
 void printMenu(int& step, int& choice) {
@@ -41,11 +43,12 @@ void printMenu(int& step, int& choice) {
         std::cout << " [3] Scanner les mots suspets en anglais et en français\n";
         break;
     case 3:
-        maxPossibleChoice = 4;
+        maxPossibleChoice = 5;
         std::cout << " [1] Scanner que la conversation\n";
-        std::cout << " [2] Scanner que les médias (mp4, jpeg ...)\n";
-        std::cout << " [3] Scanner que les documents (txt, pdf ...)\n";
-        std::cout << " [4] Faire un scan totale\n";
+        std::cout << " [2] Scanner que les liens\n";
+        std::cout << " [3] Scanner que les médias (mp4, jpeg ...)\n";
+        std::cout << " [4] Scanner que les documents (txt, pdf ...)\n";
+        std::cout << " [5] Faire un scan totale\n";
         break;  
     case 4:
         maxPossibleChoice = 4;
@@ -119,7 +122,7 @@ std::wstring FindMatchingTextFile(const std::wstring& folderPath) {
 int main() {
     SetConsoleOutputCP(CP_UTF8);
 	// message de bienvenue
-    char welcomeMessage[] = "Ceci est un project academic open-source\nVous pouvez trouver le code source sur ce lien:\ngithub.com\n";
+    /*char welcomeMessage[] = "Ceci est un project academic open-source\nVous pouvez trouver le code source sur ce lien:\ngithub.com\n";
     for (char c : welcomeMessage) {
         if (c == '\n')
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -127,7 +130,7 @@ int main() {
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
     std::system("pause");
-	std::system("cls");
+	std::system("cls");*/
     
     // variable pour les etapes
     int step = 1;
@@ -137,7 +140,7 @@ int main() {
     std::wstring matchingTextFilePath = L"empty"; // Variable to store the path to the text file with the same name
     Conversation conversation;
     enum Langage { ENGLISH = 1, FRENCH = 2, BOTH_LANGAGE = 3 };
-    enum Content { CONVERSATION = 1, MEDIA = 2, DOCUMENT = 3, ALL_CONTENT = 3 };
+    enum Content { CONVERSATION = 1, LINK = 2, MEDIA = 3, DOCUMENT = 4, ALL_CONTENT = 5 };
     Langage langageToScan = Langage::ENGLISH;
     Content contentToScan = Content::CONVERSATION;
 	
@@ -197,7 +200,19 @@ int main() {
 
                 // Display basic conversation stats
                 std::wcout << L"Conversation chargée avec succès.\n";
-                std::wcout << L"Nombre de messages : " << conversation.getMessages().size() << L"\n\n";
+                std::map<MessageType, int> messageCounts = conversation.countMessagesByType();
+
+                std::wcout << L"Nombre de messages : " << conversation.getMessages().size() << L"\n";
+                std::wcout << L"Répartition des messages par type :\n";
+                std::wcout << L"  - Messages texte      : " << std::setw(5) << messageCounts[MessageType::TEXT] << L"\n";
+                std::wcout << L"  - Liens               : " << std::setw(5) << messageCounts[MessageType::LINK] << L"\n";
+                std::wcout << L"  - Messages avec liens : " << std::setw(5) << messageCounts[MessageType::TEXT_LINK] << L"\n";
+                std::wcout << L"  - Médias omis         : " << std::setw(5) << messageCounts[MessageType::MEDIA_OMITTED] << L"\n";
+                std::wcout << L"  - Images              : " << std::setw(5) << messageCounts[MessageType::IMAGE] << L"\n";
+                std::wcout << L"  - Vidéos              : " << std::setw(5) << messageCounts[MessageType::VIDEO] << L"\n";
+                std::wcout << L"  - Audios              : " << std::setw(5) << messageCounts[MessageType::AUDIO] << L"\n";
+                std::wcout << L"  - Documents           : " << std::setw(5) << messageCounts[MessageType::DOCUMENT] << L"\n";
+                std::wcout << L"  - Types inconnus      : " << std::setw(5) << messageCounts[MessageType::UNKNOWN] << L"\n\n";
 
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 std::system("pause");

@@ -3,7 +3,8 @@
 
 #include <vector>
 #include <string>
-#include "message.h"
+#include <map>
+#include "core/message.h"
 
 // Class representing a full conversation
 class Conversation {
@@ -22,6 +23,9 @@ public:
 
     // Filter messages by type
     std::vector<Message> filterByType(MessageType type) const;
+
+    // Count messages by type
+    std::map<MessageType, int> countMessagesByType() const;
 
 private:
     std::vector<Message> messages;
