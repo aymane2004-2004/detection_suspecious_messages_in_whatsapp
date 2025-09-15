@@ -153,7 +153,7 @@ namespace Parser {
      * the provided Conversation object.
      *
      * Expected format of WhatsApp messages in English:
-     * [MM/DD/YY, HH:MM:SS AM/PM] Author: Message content
+     * MM/DD/YY, HH:MM - Author: Message content
      *
      * @param filePath The path to the WhatsApp chat text file
      * @param conversation The Conversation object where messages will be stored
