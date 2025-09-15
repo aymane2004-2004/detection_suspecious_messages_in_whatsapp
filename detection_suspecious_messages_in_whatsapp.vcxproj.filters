@@ -63,7 +63,7 @@
     <ClCompile Include="src\analysis\detector.cpp">
       <Filter>Source Files\analysis</Filter>
     </ClCompile>
-    <ClCompile Include="src\io\exportor.cpp">
+    <ClCompile Include="src\io\exporter.cpp">
       <Filter>Source Files\io</Filter>
     </ClCompile>
   </ItemGroup>

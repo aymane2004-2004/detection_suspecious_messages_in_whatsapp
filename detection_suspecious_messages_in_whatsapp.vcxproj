@@ -23,7 +23,7 @@
     <ClCompile Include="src\core\conversation.cpp" />
     <ClCompile Include="src\core\message.cpp" />
     <ClCompile Include="src\core\suspicious_words.cpp" />
-    <ClCompile Include="src\io\exportor.cpp" />
+    <ClCompile Include="src\io\exporter.cpp" />
     <ClCompile Include="src\io\logger.cpp" />
     <ClCompile Include="src\io\parser.cpp" />
     <ClCompile Include="src\io\report.cpp" />

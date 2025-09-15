@@ -2,6 +2,7 @@
 #include "core/message.h"
 #include "core/conversation.h"
 #include "core/suspicious_words.h"
+#include "io/exporter.h"
 #include "io/parser.h"
 #include "io/logger.h"
 #include "io/report.h"
@@ -14,51 +15,56 @@
 #include <cstdlib>
 #include <shobjidl.h> // For IFileDialog
 #include <filesystem>  // Ensure this is included before usage
+#include <thread>   // pour std::this_thread::sleep_for
+#include <chrono>   // pour std::chrono::seconds, milliseconds, etc.
 
 
-void printMenu(int menuNumber, int& choice, int erase) {
-    if (erase) {
-        std::system("cls");
-	}
+void printMenu(int& step, int& choice) {
+    std::system("cls");
 	int maxPossibleChoice = 0;
+	std::cout << "                         " << step << "/4\n";
     std::cout << "=======================================================\n";
     std::cout << "        WhatsApp Detection Suspecious Messages\n";
     std::cout << "=======================================================\n";
-    switch (menuNumber) {
+    if (step > 1) std::cout << "[-1] Revenir en arriere\n";
+    std::cout << " [0] Quitter\n";
+    switch (step) {
     case 1:
         maxPossibleChoice = 2;
-        std::cout << "[1] Choisir le chemin vers le dossier exporte\n";
-        std::cout << "[2] Tutoriel pour extraire les messages Whatsapp en anglais\n";
+        std::cout << " [1] Choisir le chemin vers le dossier exporte\n";
+        std::cout << " [2] Tutoriel pour extraire les messages Whatsapp en anglais\n";
         break;
     case 2:
         maxPossibleChoice = 3;
-        std::cout << "[1] Scanner les mots suspets en anglais\n";
-        std::cout << "[2] Scanner les mots suspets en français\n";
-        std::cout << "[3] Scanner les mots suspets en anglais et en français\n";
+        std::cout << " [1] Scanner les mots suspets en anglais\n";
+        std::cout << " [2] Scanner les mots suspets en français\n";
+        std::cout << " [3] Scanner les mots suspets en anglais et en français\n";
         break;
     case 3:
         maxPossibleChoice = 3;
-        std::cout << "[1] Scanner que la conversation\n";
-        std::cout << "[2] Scanner que les media (txt,pdf etc)\n";
-        std::cout << "[3] Scanner la conversation et les media\n";
+        std::cout << " [1] Scanner que la conversation\n";
+        std::cout << " [2] Scanner que les media (txt,pdf etc)\n";
+        std::cout << " [3] Scanner la conversation et les media\n";
         break;
     case 4:
         maxPossibleChoice = 4;
-        std::cout << "[1] Exporter tous les messages vers CSV\n";
-        std::cout << "[2] Exporter seulement les messages suspects vers CSV\n";
-        std::cout << "[3] Sauvgarder les logs\n";
-        std::cout << "[4] Sauvgarder le rapport de scan\n";
+        std::cout << " [1] Exporter tous les messages vers CSV\n";
+        std::cout << " [2] Exporter seulement les messages suspects vers CSV\n";
+        std::cout << " [3] Sauvgarder les logs\n";
+        std::cout << " [4] Sauvgarder le rapport de scan\n";
         break;
     }
-    std::cout << "[0] Quitter\n";
     std::cout << "=======================================================\n";
     std::cout << "Votre choix : ";
     std::cin >> choice;
-    if (choice < 0 || choice > maxPossibleChoice) {
-        std::system("cls");
+    if (choice == 0) step = 0;
+    else if (choice == -1 && step > 1) { step--;}
+    else if (choice < 0 || choice > maxPossibleChoice) {
 		std::cout << "Choix invalide. Ressayez." << std::endl;
-		printMenu(menuNumber, choice, 0);
+		printMenu(step, choice);
     }
+	else if (choice > 0 && choice <= maxPossibleChoice && step < 4) 
+        if (step != 1 || choice !=2) step++;
 }
 
 // Function to open a folder selection dialog and return the selected path as std::wstring
@@ -111,96 +117,140 @@ std::wstring FindMatchingTextFile(const std::wstring& folderPath) {
 
 int main() {
     SetConsoleOutputCP(CP_UTF8);
-
-    int choice;
+    // variable initiole
+    int step = 1;
+    int choice = 0;
+    // variable step 1
+    std::wstring selectedFolderPath = L"empty"; // Variable to store the selected folder path
+    std::wstring matchingTextFilePath = L"empty"; // Variable to store the path to the text file with the same name
+    Conversation conversation;
+	// variable step 2
     int langageToScan = 0; // 1: anglais, 2: français, 3: les deux
     int contentToScan = 0; // 1: conversation, 2: media, 3: les deux
-    std::wstring selectedFolderPath; // Variable to store the selected folder path
-    std::wstring matchingTextFilePath; // Variable to store the path to the text file with the same name
+	// variable step 3
 
-    printMenu(1, choice, 0);
-    if (choice == 1) {
-        std::wcout << L"Une fenêtre s'est ouverte, sélectionnez le dossier exporté depuis WhatsApp.\n\n";
+    do {
+        switch (step) {
+        case 0:
+			return 0;
+		//step 1
+        case 1:
+			printMenu(step, choice);
+            if (choice == 1) {
+                std::wcout << L"Une fenêtre s'est ouverte, sélectionnez le dossier exporté depuis WhatsApp.\n\n";
 
-        // Open folder selection dialog and store the path
-        selectedFolderPath = SelectFolderDialog();
-        if (selectedFolderPath.empty()) {
-            std::wcout << L"Aucun dossier sélectionné. Arrêt du programme.\n";
-            return 0;
+                // Open folder selection dialog and store the path
+                selectedFolderPath = SelectFolderDialog();
+                if (selectedFolderPath.empty()) {
+                    std::wcout << L"Aucun dossier sélectionné. Ressayez.\n";
+                    std::system("pause");
+                    step--;
+                    break;
+                }
+
+                // Check if the folder name starts with "WhatsApp Chat with"
+                std::filesystem::path folderPath(selectedFolderPath);
+                std::wstring folderName = folderPath.filename().wstring();
+                if (folderName.rfind(L"WhatsApp Chat with", 0) != 0) {
+                    std::wcout << L"Erreur : Le dossier sélectionné n'est pas en anglais ou est invalide.\n";
+                    std::wcout << L"Le nom du dossier doit commencer par \"WhatsApp Chat with\".\n";
+                    std::system("pause");
+                    step--;
+                    break;
+                }
+
+                // Find a text file with the same name as the folder
+                matchingTextFilePath = FindMatchingTextFile(selectedFolderPath);
+                if (matchingTextFilePath.empty()) {
+                    std::wcout << L"Erreur : Aucun fichier texte portant le même nom que le dossier n'a été trouvé.\n";
+                    std::system("pause");
+                    step--;
+                    break;
+                }
+
+                std::system("cls");
+                std::wcout << L"Dossier sélectionné : " << selectedFolderPath << L"\n";
+                std::wcout << L"Fichier texte trouvé : " << matchingTextFilePath << L"\n\n";
+
+                // Parse the WhatsApp chat file into a Conversation object
+                bool parseSuccess = Parser::parseWhatsAppChat(matchingTextFilePath, conversation);
+
+                if (!parseSuccess) {
+                    std::wcout << L"Erreur : Impossible de parser le fichier de conversation WhatsApp.\n";
+                    std::system("pause");
+                    step--;
+                    break;
+                }
+
+                // Display basic conversation stats
+                std::wcout << L"Conversation chargée avec succès.\n";
+                std::wcout << L"Nombre de messages : " << conversation.getMessages().size() << L"\n\n";
+
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+                std::system("pause");
+
+            }
+            else if (choice == 2) {
+                std::system("cls");
+                std::cout << "\nTutoriel pour extraire les messages WhatsApp en anglais :\n";
+                std::cout << " 1. Ouvrez WhatsApp sur votre téléphone.\n";
+                std::cout << " 2. Allez dans Paramètres > Langue de l'application.\n";
+                std::cout << " 3. Choisissez English (Important).\n";
+                std::cout << " 4. Revenez à l'accueil.\n";
+                std::cout << " 5. Entrez dans une conversation que vous voulez exporter.\n";
+                std::cout << " 6. Cliquez sur les trois points en haut à droite > More > Export chat.\n";
+                std::cout << " 7. Sélectionnez 'Without media' ou 'Include media'.\n";
+                std::cout << " 8. Envoyez le fichier zip sur votre ordinateur.\n";
+                std::cout << " 9. Decompresser le fichier zip.\n";
+                std::cout << "10. Selectioner le dossier dans cette l'application.\n";
+                std::cout << "Pour plus de détails :\n";
+                std::cout << "youtube.com\n";
+                std::system("pause");
+                return 0;
+            }
+
+
+			break;
+        //step 2
+        case 2:
+            printMenu(step, choice);
+            langageToScan = choice;
+            std::wcout << L"\n\n";
+            break;
+		//step 3
+		case 3:
+            printMenu(step, choice);
+            contentToScan = choice;
+            std::wcout << L"\n\n";
+
+            //detection des messages suspets
+
+			break;
+        //step 4
+        case 4:
+            printMenu(step, choice);
+            if (choice == 1) {
+                // Exporter tous les messages vers CSV
+                std::wstring csvPath = selectedFolderPath + L"\\exported_messages.csv";
+                bool exportSuccess = Exporter::exportToCSV(conversation, csvPath);
+                if (exportSuccess) {
+                    std::wcout << L"Messages exportés avec succès vers : " << csvPath << L"\n";
+                }
+                else {
+                    std::wcout << L"Erreur lors de l'exportation des messages.\n";
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+				std::system("pause");
+            }
+
+            break;
+        default:
+			std::wcout << "choix du step invalide. Arrêt du programme." << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            step = 0;
+			break;
         }
-
-        // Check if the folder name starts with "WhatsApp Chat with"
-        std::filesystem::path folderPath(selectedFolderPath);
-        std::wstring folderName = folderPath.filename().wstring();
-        if (folderName.rfind(L"WhatsApp Chat with", 0) != 0) {
-            std::wcout << L"Erreur : Le dossier sélectionné n'est pas en anglais ou est invalide.\n";
-            std::wcout << L"Le nom du dossier doit commencer par \"WhatsApp Chat with\".\n";
-            std::system("pause");
-            return 0;
-        }
-
-        // Find a text file with the same name as the folder
-        matchingTextFilePath = FindMatchingTextFile(selectedFolderPath);
-        if (matchingTextFilePath.empty()) {
-            std::wcout << L"Erreur : Aucun fichier texte portant le même nom que le dossier n'a été trouvé.\n";
-            std::system("pause");
-            return 0;
-        }
-
-        std::system("cls");
-        std::wcout << L"Dossier sélectionné : " << selectedFolderPath << L"\n";
-        std::wcout << L"Fichier texte trouvé : " << matchingTextFilePath << L"\n\n";
-
-        // Parse the WhatsApp chat file into a Conversation object
-        Conversation conversation;
-        bool parseSuccess = Parser::parseWhatsAppChat(matchingTextFilePath, conversation);
-
-        if (!parseSuccess) {
-            std::wcout << L"Erreur : Impossible de parser le fichier de conversation WhatsApp.\n";
-            std::system("pause");
-            return 0;
-        }
-
-        // Display basic conversation stats
-        std::wcout << L"Conversation chargée avec succès.\n";
-        std::wcout << L"Nombre de messages : " << conversation.getMessages().size() << L"\n\n";
-
-        // afficher tout les messages ici
-
-        printMenu(2, choice, 0);
-        if (!choice) return 0;
-        langageToScan = choice;
-        std::wcout << L"\n\n";
-        printMenu(3, choice, 1);
-        if (!choice) return 0;
-        contentToScan = choice;
-        std::wcout << L"\n\n";
-        printMenu(4, choice, 1);
-        if (!choice) return 0;
-        std::system("pause");
-
-    }
-    else if (choice == 2) {
-        std::system("cls");
-        std::cout << "\nTutoriel pour extraire les messages WhatsApp en anglais :\n";
-        std::cout << " 1. Ouvrez WhatsApp sur votre téléphone.\n";
-        std::cout << " 2. Allez dans Paramètres > Langue de l'application.\n";
-        std::cout << " 3. Choisissez English (Important).\n";
-        std::cout << " 4. Revenez à l'accueil.\n";
-        std::cout << " 5. Entrez dans une conversation que vous voulez exporter.\n";
-        std::cout << " 6. Cliquez sur les trois points en haut à droite > More > Export chat.\n";
-        std::cout << " 7. Sélectionnez 'Without media' ou 'Include media'.\n";
-        std::cout << " 8. Envoyez le fichier zip sur votre ordinateur.\n";
-        std::cout << " 9. Decompresser le fichier zip.\n";
-        std::cout << "10. Selectioner le dossier dans cette l'application.\n";
-        std::cout << "Pour plus de détails :\n";
-        std::cout << "youtube.com\n";
-        std::system("pause");
-        return 0;
-    }
-    else {
-        return 0;
-    }
+    } while (step);
 
     return 0;
 }
