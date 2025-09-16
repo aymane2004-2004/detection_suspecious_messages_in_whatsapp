@@ -288,15 +288,7 @@ int main() {
                     selectedFolderPath, Lang);
                 break;
             case Content::ALL_CONTENT:
-                Parser::displayProgressBar(0);
-                engine.detectSuspiciousWords(conversation, suspiciousConversation, Lang);
-                Parser::displayProgressBar(25);
-				engine.detectSuspiciousLinks(conversation, suspiciousConversation);
-                Parser::displayProgressBar(50);
-                engine.detectSuspiciousFilenames(conversation, suspiciousConversation, Lang);
-                Parser::displayProgressBar(75);
-                //engine.detectSuspiciousWordsInTextFiles(conversation, suspiciousConversation, selectedFolderPath, Lang);
-				Parser::displayProgressBar(100);
+                engine.detectAll(conversation, suspiciousConversation, selectedFolderPath, Lang, true);
                 break;
             }
 

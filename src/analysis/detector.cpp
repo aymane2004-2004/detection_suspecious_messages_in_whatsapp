@@ -1,7 +1,9 @@
 #include "analysis/detector.h"
 #include "utils/file_utils.h"
+#include "io/parser.h" // for Parser::displayProgressBar
 #include <algorithm>
 #include <cctype>
+#include <functional>
 #include <locale>
 #include <cwctype>
 #include <regex>
@@ -14,23 +16,23 @@ namespace Analysis {
     std::string wideToLowerUtf8(const std::wstring& ws) {
         if (ws.empty()) return {};
         int utf8Len = ::WideCharToMultiByte(CP_UTF8, 0, ws.data(),
-                                            static_cast<int>(ws.size()),
-                                            nullptr, 0, nullptr, nullptr);
+            static_cast<int>(ws.size()),
+            nullptr, 0, nullptr, nullptr);
         if (utf8Len <= 0) return {};
         std::string utf8(static_cast<size_t>(utf8Len), '\0');
         ::WideCharToMultiByte(CP_UTF8, 0, ws.data(),
-                              static_cast<int>(ws.size()),
-                              utf8.data(), utf8Len,
-                              nullptr, nullptr);
+            static_cast<int>(ws.size()),
+            utf8.data(), utf8Len,
+            nullptr, nullptr);
         std::transform(utf8.begin(), utf8.end(), utf8.begin(),
             [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         return utf8;
     }
 
     double lookupWordWeight(const std::wstring& token,
-                            const Domain* domains,
-                            size_t domainCount,
-                            int* outReasonID)
+        const Domain* domains,
+        size_t domainCount,
+        int* outReasonID)
     {
         if (!domains || domainCount == 0)
             return 0.0;
@@ -45,7 +47,7 @@ namespace Analysis {
     }
 
     double lookupWordWeightBilingual(const std::wstring& token,
-                                     int* outReasonID)
+        int* outReasonID)
     {
         int rid = 0;
         double w = lookupWordWeight(token, allEnglishDomains, 8, &rid);
@@ -66,8 +68,8 @@ namespace Analysis {
     // detectSuspiciousWords (messages)
     // --------------------------------------------------------------------
     void DetectionEngine::detectSuspiciousWords(const Conversation& conversation,
-                                                SuspiciousConversation& outSuspicious,
-                                                DetectionLanguage language)
+        SuspiciousConversation& outSuspicious,
+        DetectionLanguage language)
     {
         const auto& msgs = conversation.getMessages();
         if (msgs.empty()) return;
@@ -79,7 +81,8 @@ namespace Analysis {
             for (wchar_t ch : text) {
                 if (std::iswalnum(static_cast<wint_t>(ch)) || ch == L'_') {
                     current.push_back(ch);
-                } else {
+                }
+                else {
                     if (!current.empty()) {
                         tokens.push_back(current);
                         current.clear();
@@ -88,7 +91,7 @@ namespace Analysis {
             }
             if (!current.empty()) tokens.push_back(current);
             return tokens;
-        };
+            };
 
         auto reasonFromRID = [](int rid) -> std::wstring {
             if (rid == static_cast<int>(ReasonID::NONE))
@@ -97,32 +100,34 @@ namespace Analysis {
             int base = french ? rid - 100 : rid;
             std::wstring suffix = french ? L" (FR)" : L" (EN)";
             switch (base) {
-            case 1: return L"SEXUAL content"      + suffix;
-            case 2: return L"VIOLENCE content"    + suffix;
+            case 1: return L"SEXUAL content" + suffix;
+            case 2: return L"VIOLENCE content" + suffix;
             case 3: return L"HATE_SPEECH content" + suffix;
-            case 4: return L"DRUGS content"       + suffix;
-            case 5: return L"SCAM content"        + suffix;
-            case 6: return L"SELF_HARM content"   + suffix;
-            case 7: return L"PROFANITY content"   + suffix;
-            case 8: return L"EXTREMIST content"   + suffix;
+            case 4: return L"DRUGS content" + suffix;
+            case 5: return L"SCAM content" + suffix;
+            case 6: return L"SELF_HARM content" + suffix;
+            case 7: return L"PROFANITY content" + suffix;
+            case 8: return L"EXTREMIST content" + suffix;
             default: return L"UNKNOWN content";
             }
-        };
+            };
 
         auto weightForToken = [language](const std::wstring& tok, int& outRID) -> double {
             outRID = static_cast<int>(ReasonID::NONE);
             if (language == DetectionLanguage::BOTH) {
                 return lookupWordWeightBilingual(tok, &outRID);
-            } else if (language == DetectionLanguage::EN) {
+            }
+            else if (language == DetectionLanguage::EN) {
                 double w = lookupWordWeight(tok, allEnglishDomains, 8, &outRID);
                 return w;
-            } else {
+            }
+            else {
                 int ridLocal = 0;
                 double w = lookupWordWeight(tok, allFrenchDomains, 8, &ridLocal);
                 if (w > 0.0) outRID = 100 + ridLocal;
                 return w;
             }
-        };
+            };
 
         for (const Message& msg : msgs) {
             MessageType mt = msg.getType();
@@ -145,11 +150,11 @@ namespace Analysis {
 
                 std::wstring reason = reasonFromRID(rid);
                 outSuspicious.add(msg,
-                                  rawToken,
-                                  reason,
-                                  weight,
-                                  rid,
-                                  SuspiciousItemType::WORD);
+                    rawToken,
+                    reason,
+                    weight,
+                    rid,
+                    SuspiciousItemType::WORD);
                 messageAccumulated += weight;
             }
 
@@ -163,19 +168,190 @@ namespace Analysis {
         }
     }
 
-    void DetectionEngine::detectSuspiciousWordsInTextFiles(const Conversation&,
-                                                           SuspiciousConversation&,
-                                                           const std::wstring&,
-                                                           DetectionLanguage)
+    void DetectionEngine::detectSuspiciousWordsInTextFiles(const Conversation& conversation,
+        SuspiciousConversation& outSuspicious,
+        const std::wstring& rootDirectory,
+        DetectionLanguage language)
     {
-        // TODO: implement file scanning later
+        const auto& msgs = conversation.getMessages();
+        if (msgs.empty()) return;
+
+        static const size_t kMaxChars = 20000;
+        static const size_t kMaxLines = 1200;
+        static const size_t kMaxTokens = 5000;
+
+        auto hasTxtExtension = [](const std::wstring& name) -> bool {
+            if (name.size() < 4) return false;
+            std::wstring lower;
+            lower.reserve(name.size());
+            for (wchar_t c : name) lower.push_back(std::towlower(c));
+            return lower.rfind(L".txt") == lower.size() - 4;
+            };
+
+        // NEW: extract real filename from patterns like "a.txt (file attached)"
+        auto extractTxtFilename = [](const std::wstring& raw) -> std::optional<std::wstring> {
+            if (raw.empty()) return std::nullopt;
+            std::wstring lower = raw;
+            std::transform(lower.begin(), lower.end(), lower.begin(), [](wchar_t c) { return std::towlower(c); });
+            size_t pos = lower.find(L".txt");
+            if (pos == std::wstring::npos) return std::nullopt;
+            pos += 4; // include ".txt"
+            std::wstring candidate = raw.substr(0, pos);
+
+            // trim spaces
+            size_t start = 0;
+            while (start < candidate.size() && iswspace(candidate[start])) ++start;
+            size_t end = candidate.size();
+            while (end > start && iswspace(candidate[end - 1])) --end;
+            candidate = candidate.substr(start, end - start);
+            return candidate.empty() ? std::nullopt : std::optional<std::wstring>(candidate);
+            };
+
+        auto tokenize = [](const std::wstring& text, std::vector<std::wstring>& out) {
+            std::wstring cur;
+            for (wchar_t ch : text) {
+                if (std::iswalnum(static_cast<wint_t>(ch)) || ch == L'_') {
+                    cur.push_back(std::towlower(ch));
+                }
+                else {
+                    if (!cur.empty()) {
+                        out.push_back(cur);
+                        cur.clear();
+                    }
+                }
+            }
+            if (!cur.empty()) out.push_back(cur);
+            };
+
+        auto reasonFromRID = [](int rid) -> std::wstring {
+            if (rid == static_cast<int>(ReasonID::NONE))
+                return L"NONE";
+            bool french = (rid >= 100);
+            int base = french ? rid - 100 : rid;
+            std::wstring suffix = french ? L" (FR)" : L" (EN)";
+            switch (base) {
+            case 1: return L"SEXUAL content" + suffix;
+            case 2: return L"VIOLENCE content" + suffix;
+            case 3: return L"HATE_SPEECH content" + suffix;
+            case 4: return L"DRUGS content" + suffix;
+            case 5: return L"SCAM content" + suffix;
+            case 6: return L"SELF_HARM content" + suffix;
+            case 7: return L"PROFANITY content" + suffix;
+            case 8: return L"EXTREMIST content" + suffix;
+            default: return L"UNKNOWN content";
+            }
+            };
+
+        auto weightForToken = [language](const std::wstring& tok, int& outRID) -> double {
+            outRID = static_cast<int>(ReasonID::NONE);
+            if (language == DetectionLanguage::BOTH)
+                return lookupWordWeightBilingual(tok, &outRID);
+            else if (language == DetectionLanguage::EN)
+                return lookupWordWeight(tok, allEnglishDomains, 8, &outRID);
+            else {
+                int local = 0;
+                double w = lookupWordWeight(tok, allFrenchDomains, 8, &local);
+                if (w > 0.0) outRID = 100 + local;
+                return w;
+            }
+            };
+
+        for (const Message& msg : msgs) {
+            if (msg.getType() != MessageType::DOCUMENT)
+                continue;
+
+            const std::wstring& originalContent = msg.getContent();
+            if (originalContent.empty())
+                continue;
+
+            // Extract clean filename
+            auto extracted = extractTxtFilename(originalContent);
+            if (!extracted)
+                continue;
+
+            const std::wstring& cleanFilename = *extracted;
+            if (!hasTxtExtension(cleanFilename))
+                continue;
+
+            std::filesystem::path fullPath = rootDirectory.empty()
+                ? std::filesystem::path(cleanFilename)
+                : std::filesystem::path(rootDirectory) / cleanFilename;
+
+            std::error_code ec;
+            if (!std::filesystem::exists(fullPath, ec) || !std::filesystem::is_regular_file(fullPath, ec))
+                continue;
+
+            std::wstring normalized = fullPath.lexically_normal().wstring();
+            if (scannedFiles.find(normalized) != scannedFiles.end())
+                continue;
+
+            scannedFiles.insert(normalized);
+
+            std::vector<std::wstring> lines;
+            try {
+                lines = FileUtils::readFileLines(normalized);
+            }
+            catch (...) {
+                continue;
+            }
+
+            size_t totalChars = 0;
+            size_t tokensCount = 0;
+            double accumulatedScore = 0.0;
+
+            for (size_t i = 0; i < lines.size(); ++i) {
+                if (i >= kMaxLines || totalChars >= kMaxChars || tokensCount >= kMaxTokens)
+                    break;
+
+                const std::wstring& line = lines[i];
+                totalChars += line.size();
+
+                std::vector<std::wstring> tokens;
+                tokens.reserve(32);
+                tokenize(line, tokens);
+
+                for (const auto& tok : tokens) {
+                    if (tokensCount >= kMaxTokens || totalChars >= kMaxChars)
+                        break;
+                    tokensCount++;
+
+                    if (tok.size() < 2)
+                        continue;
+
+                    int rid = 0;
+                    double w = weightForToken(tok, rid);
+                    if (w <= 0.0 || rid == static_cast<int>(ReasonID::NONE))
+                        continue;
+
+                    std::wstring reason = L"Text file word: " + reasonFromRID(rid) +
+                        L" (file " + cleanFilename + L")";
+
+                    outSuspicious.add(msg,
+                        tok,
+                        reason,
+                        w,
+                        rid,
+                        SuspiciousItemType::WORD);
+
+                    accumulatedScore += w;
+                }
+            }
+
+            if (accumulatedScore > 0.0) {
+                auto it = messageScores.find(&msg);
+                if (it == messageScores.end())
+                    messageScores.emplace(&msg, accumulatedScore);
+                else
+                    it->second += accumulatedScore;
+            }
+        }
     }
 
     // --------------------------------------------------------------------
     // detectSuspiciousLinks
     // --------------------------------------------------------------------
     void DetectionEngine::detectSuspiciousLinks(const Conversation& conversation,
-                                                SuspiciousConversation& outSuspicious) {
+        SuspiciousConversation& outSuspicious) {
         const auto& msgs = conversation.getMessages();
         if (msgs.empty()) return;
 
@@ -221,10 +397,11 @@ namespace Analysis {
                 if (c == L'.' || c == L',' || c == L';' || c == L')' ||
                     c == L'!' || c == L'?') {
                     url.pop_back();
-                } else break;
+                }
+                else break;
             }
             return url;
-        };
+            };
 
         auto collectLinks = [&](const std::wstring& text) -> std::vector<std::wstring> {
             std::unordered_set<std::wstring> set;
@@ -240,7 +417,7 @@ namespace Analysis {
                 }
             }
             return { set.begin(), set.end() };
-        };
+            };
 
         for (const auto& msg : msgs) {
             MessageType mt = msg.getType();
@@ -261,8 +438,9 @@ namespace Analysis {
                     bool matched = false;
                     try {
                         matched = p.fullMatch ? std::regex_match(link, rgx)
-                                              : std::regex_search(link, rgx);
-                    } catch (...) { matched = false; }
+                            : std::regex_search(link, rgx);
+                    }
+                    catch (...) { matched = false; }
                     if (matched) {
                         totalScore += p.weight;
                         matchedNames.emplace_back(p.name);
@@ -278,11 +456,11 @@ namespace Analysis {
                     }
 
                     outSuspicious.add(msg,
-                                      link,
-                                      reason.str(),
-                                      totalScore,
-                                      static_cast<int>(ReasonID::LINK),
-                                      SuspiciousItemType::LINK);
+                        link,
+                        reason.str(),
+                        totalScore,
+                        static_cast<int>(ReasonID::LINK),
+                        SuspiciousItemType::LINK);
 
                     auto it = messageScores.find(&msg);
                     if (it == messageScores.end())
@@ -295,17 +473,17 @@ namespace Analysis {
     }
 
     void DetectionEngine::detectSuspiciousFilenames(const Conversation& conversation,
-                                                    SuspiciousConversation& outSuspicious,
-                                                    DetectionLanguage language) {
+        SuspiciousConversation& outSuspicious,
+        DetectionLanguage language) {
         const auto& msgs = conversation.getMessages();
         if (msgs.empty()) return;
 
         auto isTargetType = [](MessageType t) {
             return t == MessageType::IMAGE ||
-                   t == MessageType::VIDEO ||
-                   t == MessageType::AUDIO ||
-                   t == MessageType::DOCUMENT;
-        };
+                t == MessageType::VIDEO ||
+                t == MessageType::AUDIO ||
+                t == MessageType::DOCUMENT;
+            };
 
         auto hasObfuscatedUnicode = [](const std::wstring& s) -> bool {
             for (wchar_t ch : s) {
@@ -318,18 +496,18 @@ namespace Analysis {
                     (c >= 0xAC00 && c <= 0xD7AF)) return true;
             }
             return false;
-        };
+            };
 
         auto extractCandidates = [](const std::wstring& content) -> std::vector<std::wstring> {
             std::vector<std::wstring> out;
             static const std::wregex rgx(LR"(([^\s<>:\"/\\|?*]{1,200}\.[A-Za-z0-9]{1,8}))",
-                                         std::regex_constants::icase);
+                std::regex_constants::icase);
             std::wsregex_iterator it(content.begin(), content.end(), rgx), end;
             for (; it != end; ++it) {
                 std::wstring cand = it->str();
                 while (!cand.empty() && (cand.back() == L'.' || cand.back() == L',' ||
-                                         cand.back() == L';' || cand.back() == L')' ||
-                                         cand.back() == L'!' || cand.back() == L'?')) {
+                    cand.back() == L';' || cand.back() == L')' ||
+                    cand.back() == L'!' || cand.back() == L'?')) {
                     cand.pop_back();
                 }
                 if (!cand.empty())
@@ -345,7 +523,7 @@ namespace Analysis {
                 }
             }
             return out;
-        };
+            };
 
         auto reasonFromRID = [](int rid) -> std::wstring {
             if (rid == static_cast<int>(ReasonID::NONE)) return L"NONE";
@@ -363,7 +541,7 @@ namespace Analysis {
             case 8: return L"EXTREMIST " + suffix;
             default: return L"UNKNOWN";
             }
-        };
+            };
 
         auto weightForToken = [language](const std::wstring& tok, int& outRID)->double {
             outRID = static_cast<int>(ReasonID::NONE);
@@ -377,7 +555,7 @@ namespace Analysis {
                 if (w > 0.0) outRID = 100 + local;
                 return w;
             }
-        };
+            };
 
         const double kUnicodeObfuscationWeight = 20.0;
 
@@ -397,7 +575,8 @@ namespace Analysis {
                     for (wchar_t ch : filename) {
                         if (std::iswalnum(static_cast<wint_t>(ch))) {
                             cur.push_back(std::towlower(ch));
-                        } else {
+                        }
+                        else {
                             if (!cur.empty()) { tokens.push_back(cur); cur.clear(); }
                         }
                     }
@@ -440,11 +619,11 @@ namespace Analysis {
                     reason << L"]";
 
                     outSuspicious.add(msg,
-                                      filename,
-                                      reason.str(),
-                                      totalScore,
-                                      static_cast<int>(ReasonID::FILENAME),
-                                      SuspiciousItemType::FILENAME);
+                        filename,
+                        reason.str(),
+                        totalScore,
+                        static_cast<int>(ReasonID::FILENAME),
+                        SuspiciousItemType::FILENAME);
 
                     auto it = messageScores.find(&msg);
                     if (it == messageScores.end())
@@ -456,10 +635,35 @@ namespace Analysis {
         }
     }
 
-    void DetectionEngine::detectAll(const Conversation&,
-                                    SuspiciousConversation&,
-                                    const std::wstring&) {
-        // no-op placeholder
+    void DetectionEngine::detectAll(const Conversation& conversation,
+        SuspiciousConversation& outSuspicious,
+        const std::wstring& rootDirectory,
+        DetectionLanguage language,
+        bool includeTextFiles)
+    {
+        const bool canScanTextFiles = includeTextFiles && !rootDirectory.empty();
+        // Build ordered steps based on what will actually run
+        struct Step {
+            std::function<void()> run;
+        };
+        std::vector<Step> steps;
+        steps.push_back({ [&]() { detectSuspiciousWords(conversation, outSuspicious, language); } });
+        steps.push_back({ [&]() { detectSuspiciousLinks(conversation, outSuspicious); } });
+        steps.push_back({ [&]() { detectSuspiciousFilenames(conversation, outSuspicious, language); } });
+        if (canScanTextFiles) {
+            steps.push_back({ [&]() { detectSuspiciousWordsInTextFiles(conversation, outSuspicious, rootDirectory, language); } });
+        }
+
+        if (steps.empty()) return;
+
+        Parser::displayProgressBar(0);
+        const size_t total = steps.size();
+        for (size_t i = 0; i < total; ++i) {
+            steps[i].run();
+            int progress = static_cast<int>( ( (i + 1.0) / total ) * 100.0 );
+            if (progress > 100) progress = 100;
+            Parser::displayProgressBar(progress);
+        }
     }
 
     double DetectionEngine::getMessageScore(const Message&) const {

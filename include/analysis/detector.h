@@ -52,9 +52,12 @@ namespace Analysis {
                                        SuspiciousConversation& outSuspicious,
                                        DetectionLanguage language = DetectionLanguage::BOTH);
 
+        // Updated: added language + includeTextFiles flag (defaults keep previous behavior)
         void detectAll(const Conversation& conversation,
                        SuspiciousConversation& outSuspicious,
-                       const std::wstring& rootDirectory = L"");
+                       const std::wstring& rootDirectory = L"",
+                       DetectionLanguage language = DetectionLanguage::BOTH,
+                       bool includeTextFiles = true);
 
         double getMessageScore(const Message& msg) const;
         const std::unordered_map<const Message*, double>& getAllMessageScores() const noexcept {
