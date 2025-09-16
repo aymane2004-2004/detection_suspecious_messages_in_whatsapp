@@ -30,6 +30,7 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\analysis\detection_engine.h" />
     <ClInclude Include="include\analysis\detector.h" />
     <ClInclude Include="include\core\conversation.h" />
     <ClInclude Include="include\core\message.h" />

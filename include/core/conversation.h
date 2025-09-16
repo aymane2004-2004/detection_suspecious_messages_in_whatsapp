@@ -27,6 +27,9 @@ public:
     // Count messages by type
     std::map<MessageType, int> countMessagesByType() const;
 
+    // NEW: vider la conversation
+    void clear() { messages.clear(); }
+
 private:
     std::vector<Message> messages;
 };

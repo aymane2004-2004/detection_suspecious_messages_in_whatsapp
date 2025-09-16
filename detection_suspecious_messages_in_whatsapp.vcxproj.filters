@@ -98,5 +98,8 @@
     <ClInclude Include="include\io\exporter.h">
       <Filter>Header Files\io</Filter>
     </ClInclude>
+    <ClInclude Include="include\analysis\detection_engine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

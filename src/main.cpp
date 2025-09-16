@@ -46,8 +46,8 @@ void printMenu(int& step, int& choice) {
         maxPossibleChoice = 5;
         std::cout << " [1] Scanner que la conversation\n";
         std::cout << " [2] Scanner que les liens\n";
-        std::cout << " [3] Scanner que les médias (mp4, jpeg ...)\n";
-        std::cout << " [4] Scanner que les documents (txt, pdf ...)\n";
+        std::cout << " [3] Scanner que les meta-donnes (medias et documents)\n";
+        std::cout << " [4] Scanner que les documents (txt, pdf)\n";
         std::cout << " [5] Faire un scan totale\n";
         break;  
     case 4:
@@ -65,6 +65,7 @@ void printMenu(int& step, int& choice) {
     else if (choice == -1 && step > 1) { step--;}
     else if (choice < 0 || choice > maxPossibleChoice) {
 		std::cout << "Choix invalide. Ressayez." << std::endl;
+		std::system("pause");
 		printMenu(step, choice);
     }
 	else if (choice > 0 && choice <= maxPossibleChoice && step < 4) 
@@ -140,9 +141,12 @@ int main() {
     std::wstring matchingTextFilePath = L"empty"; // Variable to store the path to the text file with the same name
     Conversation conversation;
     enum Langage { ENGLISH = 1, FRENCH = 2, BOTH_LANGAGE = 3 };
-    enum Content { CONVERSATION = 1, LINK = 2, MEDIA = 3, DOCUMENT = 4, ALL_CONTENT = 5 };
+    enum Content { CONVERSATION = 1, LINK = 2, METADATA = 3, DOCUMENT = 4, ALL_CONTENT = 5 };
     Langage langageToScan = Langage::ENGLISH;
     Content contentToScan = Content::CONVERSATION;
+	// detection results
+	Analysis::SuspiciousConversation suspiciousConversation;
+    Analysis::DetectionEngine engine;
 	
 
     do {
@@ -153,6 +157,11 @@ int main() {
         case 1:
 			printMenu(step, choice);
             if (choice == 1) {
+                // Réinitialiser avant un nouvel import
+                conversation.clear();
+                suspiciousConversation.clear();
+                engine.reset();
+
                 std::wcout << L"Une fenêtre s'est ouverte, sélectionnez le dossier exporté depuis WhatsApp.\n\n";
 
                 // Open folder selection dialog and store the path
@@ -214,7 +223,7 @@ int main() {
                 std::wcout << L"  - Documents           : " << std::setw(5) << messageCounts[MessageType::DOCUMENT] << L"\n";
                 std::wcout << L"  - Types inconnus      : " << std::setw(5) << messageCounts[MessageType::UNKNOWN] << L"\n\n";
 
-                std::this_thread::sleep_for(std::chrono::seconds(3));
+                std::this_thread::sleep_for(std::chrono::seconds(1));
                 std::system("pause");
 
             }
@@ -242,21 +251,58 @@ int main() {
         //step 2
         case 2:
             printMenu(step, choice);
+            if (choice == -1 && step > 1) { break; }
             langageToScan = (Langage)choice;
             std::wcout << L"\n\n";
             break;
 		//step 3
 		case 3:
             printMenu(step, choice);
+            if (choice == -1 && step > 1) { break; }
             contentToScan = (Content)choice;
-            std::wcout << L"\n\n";
+            std::system("cls");
 
-            //detection des messages suspets
+            // Réinitialiser résultats + état moteur
+            suspiciousConversation.clear();
+            engine.reset();
+
+            std::wcout << L"Détection en cours...\n";
+            switch (contentToScan) {
+            case Content::CONVERSATION:
+                engine.detectSuspiciousWords(conversation, suspiciousConversation,
+                    (langageToScan == Langage::ENGLISH) ? Analysis::DetectionLanguage::EN :
+                    (langageToScan == Langage::FRENCH) ? Analysis::DetectionLanguage::FR :
+                    Analysis::DetectionLanguage::BOTH);
+                break;
+            case Content::LINK:
+				engine.detectSuspiciousLinks(conversation, suspiciousConversation);
+                break;
+            case Content::METADATA:
+                break;
+            case Content::DOCUMENT:
+                break;
+            case Content::ALL_CONTENT:
+                Parser::displayProgressBar(0);
+                engine.detectSuspiciousWords(conversation, suspiciousConversation,
+                    (langageToScan == Langage::ENGLISH) ? Analysis::DetectionLanguage::EN :
+                    (langageToScan == Langage::FRENCH) ? Analysis::DetectionLanguage::FR :
+					Analysis::DetectionLanguage::BOTH);
+                Parser::displayProgressBar(50);
+				engine.detectSuspiciousLinks(conversation, suspiciousConversation);
+                Parser::displayProgressBar(100);
+                break;
+            }
+
+			std::wcout << L"Détection terminée.\n";
+			std::system("pause");
+
+            
 
 			break;
         //step 4
         case 4:
             printMenu(step, choice);
+            if (choice == -1 && step > 1) { break; }
             if (choice == 1) {
                 // Exporter tous les messages vers CSV
                 std::wstring csvPath = selectedFolderPath + L"\\exported_messages.csv";
@@ -267,14 +313,26 @@ int main() {
                 else {
                     std::wcout << L"Erreur lors de l'exportation des messages.\n";
                 }
-                std::this_thread::sleep_for(std::chrono::seconds(3));
+                std::this_thread::sleep_for(std::chrono::seconds(2));
 				std::system("pause");
             }
-
+            else if (choice == 2) {
+                // Exporter seulement les messages suspects vers CSV
+                std::wstring csvPath = selectedFolderPath + L"\\suspicious_messages.csv";
+                bool exportSuccess = Exporter::exportSuspiciousToCSV(suspiciousConversation, csvPath);
+                if (exportSuccess) {
+                    std::wcout << L"Messages suspects exportés avec succès vers : " << csvPath << L"\n";
+                }
+                else {
+                    std::wcout << L"Erreur lors de l'exportation des messages suspects.\n";
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                std::system("pause");
+            }
             break;
         default:
 			std::wcout << "choix du step invalide. Arrêt du programme." << std::endl;
-            std::this_thread::sleep_for(std::chrono::seconds(3));
+            std::this_thread::sleep_for(std::chrono::seconds(2));
             step = 0;
 			break;
         }
