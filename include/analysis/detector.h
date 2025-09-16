@@ -110,11 +110,13 @@ namespace Analysis {
                                    DetectionLanguage language = DetectionLanguage::BOTH);
         void detectSuspiciousWordsInTextFiles(const Conversation& conversation,
                                               SuspiciousConversation& outSuspicious,
-                                              const std::wstring& rootDirectory);
+                                              const std::wstring& rootDirectory,
+                                              DetectionLanguage language = DetectionLanguage::BOTH);
         void detectSuspiciousLinks(const Conversation& conversation,
                                    SuspiciousConversation& outSuspicious);
         void detectSuspiciousFilenames(const Conversation& conversation,
-                                       SuspiciousConversation& outSuspicious);
+                                       SuspiciousConversation& outSuspicious,
+                                       DetectionLanguage language = DetectionLanguage::BOTH);
         void detectAll(const Conversation& conversation,
                        SuspiciousConversation& outSuspicious,
                        const std::wstring& rootDirectory = L"");

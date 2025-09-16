@@ -1,4 +1,5 @@
 #include "analysis/detector.h"
+#include "analysis/suspicious_conversation.h"
 #include "core/message.h"
 #include "core/conversation.h"
 #include "core/suspicious_words.h"
@@ -147,6 +148,10 @@ int main() {
 	// detection results
 	Analysis::SuspiciousConversation suspiciousConversation;
     Analysis::DetectionEngine engine;
+    Analysis::DetectionLanguage Lang =
+        (langageToScan == Langage::ENGLISH) ? Analysis::DetectionLanguage::EN :
+        (langageToScan == Langage::FRENCH) ? Analysis::DetectionLanguage::FR :
+        Analysis::DetectionLanguage::BOTH;
 	
 
     do {
@@ -262,6 +267,7 @@ int main() {
             contentToScan = (Content)choice;
             std::system("cls");
 
+            
             // Réinitialiser résultats + état moteur
             suspiciousConversation.clear();
             engine.reset();
@@ -269,27 +275,28 @@ int main() {
             std::wcout << L"Détection en cours...\n";
             switch (contentToScan) {
             case Content::CONVERSATION:
-                engine.detectSuspiciousWords(conversation, suspiciousConversation,
-                    (langageToScan == Langage::ENGLISH) ? Analysis::DetectionLanguage::EN :
-                    (langageToScan == Langage::FRENCH) ? Analysis::DetectionLanguage::FR :
-                    Analysis::DetectionLanguage::BOTH);
+                engine.detectSuspiciousWords(conversation, suspiciousConversation, Lang);
                 break;
             case Content::LINK:
 				engine.detectSuspiciousLinks(conversation, suspiciousConversation);
                 break;
             case Content::METADATA:
+                engine.detectSuspiciousFilenames(conversation, suspiciousConversation, Lang);
                 break;
             case Content::DOCUMENT:
+                engine.detectSuspiciousWordsInTextFiles(conversation, suspiciousConversation,
+                    selectedFolderPath, Lang);
                 break;
             case Content::ALL_CONTENT:
                 Parser::displayProgressBar(0);
-                engine.detectSuspiciousWords(conversation, suspiciousConversation,
-                    (langageToScan == Langage::ENGLISH) ? Analysis::DetectionLanguage::EN :
-                    (langageToScan == Langage::FRENCH) ? Analysis::DetectionLanguage::FR :
-					Analysis::DetectionLanguage::BOTH);
-                Parser::displayProgressBar(50);
+                engine.detectSuspiciousWords(conversation, suspiciousConversation, Lang);
+                Parser::displayProgressBar(25);
 				engine.detectSuspiciousLinks(conversation, suspiciousConversation);
-                Parser::displayProgressBar(100);
+                Parser::displayProgressBar(50);
+                engine.detectSuspiciousFilenames(conversation, suspiciousConversation, Lang);
+                Parser::displayProgressBar(75);
+                //engine.detectSuspiciousWordsInTextFiles(conversation, suspiciousConversation, selectedFolderPath, Lang);
+				Parser::displayProgressBar(100);
                 break;
             }
 
