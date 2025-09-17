@@ -29,7 +29,7 @@ inline void LogEvent(const std::wstring& msg) {
 
 void printMenu(int& step, int& choice) {
     int originalStep = step;
-    int maxStep = 4;
+    int maxStep = 5;
 
     std::system("cls");
     int maxPossibleChoice = 0;
@@ -66,6 +66,12 @@ void printMenu(int& step, int& choice) {
         std::cout << " [3] Sauvgarder les logs\n";
         std::cout << " [4] Sauvgarder le rapport de scan\n";
         break;
+    case 5:
+        maxPossibleChoice = 2;
+        std::cout << " Choisir la langue du rapport:\n";
+        std::cout << " [1] Anglais\n";
+        std::cout << " [2] Français\n";
+        break;
     }
     std::cout << "=======================================================\n";
     std::cout << "Votre choix : ";
@@ -86,7 +92,10 @@ void printMenu(int& step, int& choice) {
         return;
     }
     else if (choice > 0 && choice <= maxPossibleChoice && step < maxStep) {
-        if (step != 1 || choice != 2) step++;
+        bool shouldAdvance = true;
+        if (step == 1 && choice == 2) shouldAdvance = false;      // ne pas avancer pour le tutoriel
+        if (step == 4 && choice != 4) shouldAdvance = false;       // avancer à l'étape 5 seulement si [4] Rapport
+        if (shouldAdvance) step++;
     }
 
     if (step != originalStep) {
@@ -467,10 +476,28 @@ int main() {
                 std::system("pause");
             }
             else if (choice == 4) {
+                // Aller à l'étape 5 pour choisir la langue du rapport (ne génère plus ici)
                 if (selectedFolderPath == L"empty" || outputFolder.empty()) {
                     std::wcout << L"Erreur: aucune conversation scannée récemment.\n";
                     LogEvent(L"Rapport: prerequisites manquants.");
+                    // S'assurer de rester à l'étape 4 en cas d'erreur
+                    step = 4;
                     std::system("pause");
+                    break;
+                }
+                LogEvent(L"Demande de rapport: passage à l'étape 5 pour choix de la langue.");
+                // Pas de pause ici, on enchaîne directement vers l'étape 5 au prochain tour
+            }
+            break;
+        case 5:
+            printMenu(step, choice);
+            if (choice == -1 && step > 1) { break; }
+            if (choice == 1 || choice == 2) {
+                if (selectedFolderPath == L"empty" || outputFolder.empty()) {
+                    std::wcout << L"Erreur: aucune conversation scannée récemment.\n";
+                    LogEvent(L"Rapport: prerequisites manquants (étape 5).");
+                    std::system("pause");
+                    step = 4;
                     break;
                 }
                 reportOpts.totalMessagesInConversation = conversation.getMessages().size();
@@ -478,8 +505,9 @@ int main() {
                 reportOpts.includePerEntrySection = true;
                 reportOpts.includeTopEntries = true;
                 reportOpts.topEntriesCount = 15;
-                reportOpts.language = Report::Language::FR;
-                LogEvent(L"Génération rapport -> " + reportFile);
+                reportOpts.language = (choice == 1) ? Report::Language::EN : Report::Language::FR;
+
+                LogEvent(L"Génération rapport (" + std::wstring((choice == 1) ? L"EN" : L"FR") + L") -> " + reportFile);
                 bool ok = Report::generateReport(suspiciousConversation, reportFile, reportOpts);
                 if (ok) {
                     std::wcout << L"Rapport généré : " << reportFile << L"\n";
@@ -493,6 +521,8 @@ int main() {
                     LogEvent(L"Echec génération rapport.");
                 }
                 std::system("pause");
+                // Retour à l'étape 4 après génération
+                step = 4;
             }
             break;
         default:
