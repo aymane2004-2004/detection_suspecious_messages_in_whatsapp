@@ -22,7 +22,9 @@
 
 namespace Report {
 
-    // Convert wstring -> UTF-8 (same style as exporter)
+    // ------------------------------------------------------------
+    // UTF-8 conversion
+    // ------------------------------------------------------------
     static std::string wstringToUtf8(const std::wstring& w) {
 #ifdef _WIN32
         if (w.empty()) return {};
@@ -59,6 +61,7 @@ namespace Report {
         UNKNOWN
     };
 
+    // English category labels kept (content inside entries already EN); could localize later if desired.
     static const std::map<BaseCategory, std::wstring> kCategoryNames = {
         { BaseCategory::SEXUAL,     L"SEXUAL" },
         { BaseCategory::VIOLENCE,   L"VIOLENCE" },
@@ -74,7 +77,6 @@ namespace Report {
     };
 
     static BaseCategory baseCategoryFrom(const Analysis::SuspiciousEntry& e) {
-        // Disambiguate using item type first (because reasonID collisions with FR offset)
         if (e.itemType == Analysis::SuspiciousItemType::LINK)
             return BaseCategory::LINK;
         if (e.itemType == Analysis::SuspiciousItemType::FILENAME)
@@ -82,7 +84,6 @@ namespace Report {
 
         int rid = e.reasonID;
         if (e.itemType == Analysis::SuspiciousItemType::WORD) {
-            // French offsets add +100. Normal words (EN) carry 1..8
             int base = (rid > 100 ? rid - 100 : rid);
             switch (base) {
             case 1: return BaseCategory::SEXUAL;
@@ -96,49 +97,175 @@ namespace Report {
             default: break;
             }
         }
-
-        // Explicit mapping for raw reason IDs (LINK=100, FILENAME=101)
         if (rid == 100) return BaseCategory::LINK;
         if (rid == 101) return BaseCategory::FILENAME;
-
         return BaseCategory::UNKNOWN;
     }
 
+    // ------------------------------------------------------------
+    // Localization support
+    // ------------------------------------------------------------
+    struct LocalizedText {
+        // Headings
+        std::wstring title;
+        std::wstring note;
+        std::wstring globalSummary;
+        std::wstring distinctSuspiciousMessages;
+        std::wstring totalMessagesProvided;
+        std::wstring totalMessagesFallback;
+        std::wstring totalSuspiciousEntries;
+        std::wstring totalAccumScore;
+        std::wstring avgScorePerEntry;
+        std::wstring avgScorePerSuspiciousMsg;
+        std::wstring densityPerMsg;
+        std::wstring minScore;
+        std::wstring maxScore;
+        std::wstring riskAssessment;
+        std::wstring riskLevel;
+        std::wstring riskComment;
+        std::wstring itemTypeDistribution;
+        std::wstring noSuspicious;
+        std::wstring categoryStats;
+        std::wstring noData;
+        std::wstring topEntries;
+        std::wstring detailedEntries;
+        std::wstring none;
+        std::wstring examples;
+        std::wstring disclaimerHeader;
+        std::wstring disclaimerBody1;
+        std::wstring disclaimerBody2;
+        std::wstring reportEnd;
+
+        // Dynamic risk comment suffix
+        std::wstring riskCommentSuffix;
+
+        // Risk levels (output)
+        std::wstring levelLow;
+        std::wstring levelModerate;
+        std::wstring levelElevated;
+        std::wstring levelHigh;
+        std::wstring levelCritical;
+
+        // Other dynamic tokens
+        std::wstring wordLabel;
+        std::wstring linkLabel;
+        std::wstring filenameLabel;
+        std::wstring unknownLabel;
+        std::wstring distinctSuspiciousMessagesLabel;
+    };
+
+    static LocalizedText makeTexts(Language lang) {
+        LocalizedText t;
+        if (lang == Language::FR) {
+            t.title = L"RAPPORT ANALYTIQUE CONVERSATION SUSPECTE";
+            t.note = L"NOTE: Rapport académique, peut contenir des faux positifs.";
+            t.globalSummary = L"[RÉSUMÉ GLOBAL]";
+            t.distinctSuspiciousMessages = L"Messages suspects distincts (uniqueMessageCount) : ";
+            t.totalMessagesProvided = L"Total de messages dans la conversation (fourni) : ";
+            t.totalMessagesFallback = L"Total de messages dans la conversation (défaut = messages suspects distincts) : ";
+            t.totalSuspiciousEntries = L"Total d'entrées suspectes : ";
+            t.totalAccumScore = L"Score total accumulé : ";
+            t.avgScorePerEntry = L"Score moyen par entrée suspecte : ";
+            t.avgScorePerSuspiciousMsg = L"Score moyen par message suspect distinct : ";
+            t.densityPerMsg = L"Densité de score (par message total) : ";
+            t.minScore = L"Score minimal d'une entrée : ";
+            t.maxScore = L"Score maximal d'une entrée : ";
+            t.riskAssessment = L"[ÉVALUATION DU RISQUE]";
+            t.riskLevel = L"Niveau de risque : ";
+            t.riskComment = L"Commentaire : ";
+            t.riskCommentSuffix = L". Niveau dérivé d'heuristiques combinant score total et densité.";
+            t.itemTypeDistribution = L"[RÉPARTITION DES TYPES D'ÉLÉMENTS SUSPECTS]";
+            t.noSuspicious = L"Aucune entrée suspecte détectée.";
+            t.categoryStats = L"[STATISTIQUES PAR CATÉGORIE]";
+            t.noData = L"Aucune donnée.";
+            t.topEntries = L"ENTRÉES AU SCORE LE PLUS ÉLEVÉ";
+            t.detailedEntries = L"[ENTRÉES DÉTAILLÉES]";
+            t.none = L"(aucune)";
+            t.examples = L"Exemples : ";
+            t.disclaimerHeader = L"[AVERTISSEMENT]";
+            t.disclaimerBody1 = L"Ce rapport est généré par un prototype académique.";
+            t.disclaimerBody2 = L"Il peut contenir des faux positifs ou des erreurs. Une revue experte est recommandée.";
+            t.reportEnd = L"Fin du rapport.";
+            t.levelLow = L"FAIBLE";
+            t.levelModerate = L"MODÉRÉ";
+            t.levelElevated = L"ÉLEVÉ";
+            t.levelHigh = L"HAUT";
+            t.levelCritical = L"CRITIQUE";
+            t.wordLabel = L"MOT";
+            t.linkLabel = L"LIEN";
+            t.filenameLabel = L"NOM_FICHIER";
+            t.unknownLabel = L"INCONNU";
+            t.distinctSuspiciousMessagesLabel = L"Messages suspects distincts";
+        }
+        else {
+            t.title = L"SUSPICIOUS CONVERSATION ANALYTICAL REPORT";
+            t.note = L"NOTE: This report is for academic purposes only. It may contain false positives.";
+            t.globalSummary = L"[GLOBAL SUMMARY]";
+            t.distinctSuspiciousMessages = L"Distinct suspicious messages (uniqueMessageCount): ";
+            t.totalMessagesProvided = L"Total messages in conversation (provided): ";
+            t.totalMessagesFallback = L"Total messages in conversation (fallback=distinct suspicious messages): ";
+            t.totalSuspiciousEntries = L"Total suspicious entries: ";
+            t.totalAccumScore = L"Total accumulated score: ";
+            t.avgScorePerEntry = L"Average score per suspicious entry: ";
+            t.avgScorePerSuspiciousMsg = L"Average score per distinct suspicious message: ";
+            t.densityPerMsg = L"Score density (per total message): ";
+            t.minScore = L"Min suspicious entry score: ";
+            t.maxScore = L"Max suspicious entry score: ";
+            t.riskAssessment = L"[RISK ASSESSMENT]";
+            t.riskLevel = L"Risk Level: ";
+            t.riskComment = L"Comment: ";
+            t.riskCommentSuffix = L". Level derived from combined total score and density heuristics.";
+            t.itemTypeDistribution = L"[SUSPICIOUS ITEM TYPE DISTRIBUTION]";
+            t.noSuspicious = L"No suspicious entries detected.";
+            t.categoryStats = L"[CATEGORY STATISTICS]";
+            t.noData = L"No data.";
+            t.topEntries = L"HIGHEST-SCORING ENTRIES";
+            t.detailedEntries = L"[DETAILED ENTRIES]";
+            t.none = L"(none)";
+            t.examples = L"Examples: ";
+            t.disclaimerHeader = L"[DISCLAIMER]";
+            t.disclaimerBody1 = L"This analytical report is generated by an academic prototype.";
+            t.disclaimerBody2 = L"It may contain false positives or misclassifications. Manual expert review is recommended before any action.";
+            t.reportEnd = L"End of report.";
+            t.levelLow = L"LOW";
+            t.levelModerate = L"MODERATE";
+            t.levelElevated = L"ELEVATED";
+            t.levelHigh = L"HIGH";
+            t.levelCritical = L"CRITICAL";
+            t.wordLabel = L"WORD";
+            t.linkLabel = L"LINK";
+            t.filenameLabel = L"FILENAME";
+            t.unknownLabel = L"UNKNOWN";
+            t.distinctSuspiciousMessagesLabel = L"Distinct suspicious messages";
+        }
+        return t;
+    }
+
     struct RiskResult {
-        std::wstring level;
-        std::wstring comment;
+        std::wstring level;   // localized
+        std::wstring comment; // localized
     };
 
     static RiskResult assessRisk(double totalScore,
-        double density,
-        size_t totalMessages,
-        size_t suspiciousEntries)
+                                 double density,
+                                 size_t totalMessages,
+                                 size_t suspiciousEntries,
+                                 const LocalizedText& lt,
+                                 Language lang)
     {
-        // Base level by totalScore
-        auto baseLevel = [&](double s) -> std::wstring {
-            if (s < 50)   return L"LOW";
-            if (s < 200)  return L"MODERATE";
-            if (s < 600)  return L"ELEVATED";
-            if (s < 1500) return L"HIGH";
-            return L"CRITICAL";
-            };
+        auto baseLevelCode = [&](double s) -> int {
+            if (s < 50)   return 0;
+            if (s < 200)  return 1;
+            if (s < 600)  return 2;
+            if (s < 1500) return 3;
+            return 4;
+        };
 
-        std::wstring level = baseLevel(totalScore);
+        int levelCode = baseLevelCode(totalScore);
 
-        auto escalate = [&]() {
-            if (level == L"LOW") level = L"MODERATE";
-            else if (level == L"MODERATE") level = L"ELEVATED";
-            else if (level == L"ELEVATED") level = L"HIGH";
-            else if (level == L"HIGH") level = L"CRITICAL";
-            };
-        auto deescalate = [&]() {
-            if (level == L"CRITICAL") level = L"HIGH";
-            else if (level == L"HIGH") level = L"ELEVATED";
-            else if (level == L"ELEVATED") level = L"MODERATE";
-            else if (level == L"MODERATE") level = L"LOW";
-            };
+        auto escalate = [&]() { if (levelCode < 4) ++levelCode; };
+        auto deescalate = [&]() { if (levelCode > 0) --levelCode; };
 
-        // Heuristics: density weight & small conversation amplification
         if (totalMessages > 0) {
             if (totalMessages < 50 && totalScore >= 400) escalate();
             if (density > 30.0 && totalScore >= 300) escalate();
@@ -147,16 +274,36 @@ namespace Report {
             }
         }
 
-        std::wstringstream comment;
-        comment << L"TotalScore=" << totalScore;
-        if (totalMessages > 0) {
-            comment << L", Messages=" << totalMessages
-                << L", SuspiciousEntries=" << suspiciousEntries
-                << L", DensityScorePerMessage=" << std::fixed << std::setprecision(2) << density;
-        }
-        comment << L". Level derived from combined total score and density heuristics.";
+        auto codeToLabel = [&](int c)->std::wstring {
+            switch (c) {
+            case 0: return lt.levelLow;
+            case 1: return lt.levelModerate;
+            case 2: return lt.levelElevated;
+            case 3: return lt.levelHigh;
+            default: return lt.levelCritical;
+            }
+        };
 
-        return { level, comment.str() };
+        std::wstringstream comment;
+        if (lang == Language::FR) {
+            comment << L"ScoreTotal=" << totalScore;
+            if (totalMessages > 0) {
+                comment << L", Messages=" << totalMessages
+                        << L", EntreesSuspectes=" << suspiciousEntries
+                        << L", DensiteScoreParMessage=" << std::fixed << std::setprecision(2) << density;
+            }
+            comment << lt.riskCommentSuffix;
+        } else {
+            comment << L"TotalScore=" << totalScore;
+            if (totalMessages > 0) {
+                comment << L", Messages=" << totalMessages
+                        << L", SuspiciousEntries=" << suspiciousEntries
+                        << L", DensityScorePerMessage=" << std::fixed << std::setprecision(2) << density;
+            }
+            comment << lt.riskCommentSuffix;
+        }
+
+        return { codeToLabel(levelCode), comment.str() };
     }
 
     static void writeLine(std::wstringstream& ws, const std::wstring& s = L"") {
@@ -170,8 +317,8 @@ namespace Report {
     }
 
     bool generateReport(const Analysis::SuspiciousConversation& suspicious,
-        const std::wstring& outputPath,
-        const ReportGenerationOptions& options)
+                        const std::wstring& outputPath,
+                        const ReportGenerationOptions& options)
     {
         try {
             if (outputPath.empty()) {
@@ -179,7 +326,8 @@ namespace Report {
                 return false;
             }
 
-            // Prepare directory
+            LocalizedText lt = makeTexts(options.language);
+
             std::filesystem::path out = outputPath;
             if (out.has_parent_path()) {
                 std::error_code ec;
@@ -189,19 +337,16 @@ namespace Report {
             const auto& entries = suspicious.getEntries();
             size_t totalEntries = entries.size();
 
-            // Aggregate
             std::map<BaseCategory, CategoryStats> categoryMap;
             std::map<Analysis::SuspiciousItemType, size_t> typeCounts;
             double totalScore = 0.0;
             double minScore = std::numeric_limits<double>::max();
             double maxScore = 0.0;
 
-            std::set<const Message*> distinctMessages;
             for (const auto& e : entries) {
                 totalScore += e.score;
                 if (e.score < minScore) minScore = e.score;
                 if (e.score > maxScore) maxScore = e.score;
-                distinctMessages.insert(&e.message);
 
                 BaseCategory bc = baseCategoryFrom(e);
                 auto& cs = categoryMap[bc];
@@ -217,18 +362,23 @@ namespace Report {
                 maxScore = 0.0;
             }
 
-            size_t distinctMsgCount = distinctMessages.size();
+            size_t distinctMsgCount = suspicious.uniqueMessageCount();
+
             size_t totalMessages = options.totalMessagesInConversation > 0
                 ? options.totalMessagesInConversation
-                : distinctMsgCount; // fallback
+                : distinctMsgCount;
 
             double densityPerMessage = (totalMessages > 0)
                 ? (totalScore / static_cast<double>(totalMessages))
                 : 0.0;
 
-            RiskResult risk = assessRisk(totalScore, densityPerMessage, totalMessages, totalEntries);
+            RiskResult risk = assessRisk(totalScore,
+                                         densityPerMessage,
+                                         totalMessages,
+                                         totalEntries,
+                                         lt,
+                                         options.language);
 
-            // Prepare sorted top entries by score
             std::vector<const Analysis::SuspiciousEntry*> sortedByScore;
             sortedByScore.reserve(entries.size());
             for (const auto& e : entries) sortedByScore.push_back(&e);
@@ -237,72 +387,65 @@ namespace Report {
                     return a->score > b->score;
                 });
 
-            // Build report in wide buffer
             std::wstringstream ws;
             ws << L"============================================================\n";
-            ws << L"SUSPICIOUS CONVERSATION ANALYTICAL REPORT\n";
+            ws << lt.title << L"\n";
             ws << L"============================================================\n";
             writeLine(ws, L"Version: 1.0 (Academic Project)");
-            writeLine(ws, L"NOTE: This report is for academic purposes only. It may contain false positives.");
+            writeLine(ws, lt.note);
             writeLine(ws);
 
-            writeLine(ws, L"[GLOBAL SUMMARY]");
-            writeLine(ws, L"Total suspicious entries: " + std::to_wstring(totalEntries));
-            writeLine(ws, L"Distinct messages involved: " + std::to_wstring(distinctMsgCount));
+            writeLine(ws, lt.globalSummary);
+            writeLine(ws, lt.totalSuspiciousEntries + std::to_wstring(totalEntries));
+            writeLine(ws, lt.distinctSuspiciousMessages + std::to_wstring(distinctMsgCount));
             if (options.totalMessagesInConversation > 0) {
-                writeLine(ws, L"Total messages in conversation (provided): " + std::to_wstring(totalMessages));
+                writeLine(ws, lt.totalMessagesProvided + std::to_wstring(totalMessages));
+            } else {
+                writeLine(ws, lt.totalMessagesFallback + std::to_wstring(totalMessages));
             }
-            else {
-                writeLine(ws, L"Total messages in conversation (assumed = suspicious message count): " + std::to_wstring(totalMessages));
-            }
-            writeLine(ws, L"Total accumulated score: " + formatDouble(totalScore, 2));
-            writeLine(ws, L"Average score per suspicious entry: " +
+            writeLine(ws, lt.totalAccumScore + formatDouble(totalScore, 2));
+            writeLine(ws, lt.avgScorePerEntry +
                 (totalEntries ? formatDouble(totalScore / totalEntries, 2) : L"0"));
-            writeLine(ws, L"Average score per suspicious message: " +
+            writeLine(ws, lt.avgScorePerSuspiciousMsg +
                 (distinctMsgCount ? formatDouble(totalScore / distinctMsgCount, 2) : L"0"));
-            writeLine(ws, L"Score density (per total message): " + formatDouble(densityPerMessage, 2));
-            writeLine(ws, L"Min suspicious entry score: " + formatDouble(minScore, 2));
-            writeLine(ws, L"Max suspicious entry score: " + formatDouble(maxScore, 2));
+            writeLine(ws, lt.densityPerMsg + formatDouble(densityPerMessage, 2));
+            writeLine(ws, lt.minScore + formatDouble(minScore, 2));
+            writeLine(ws, lt.maxScore + formatDouble(maxScore, 2));
             writeLine(ws);
 
-            writeLine(ws, L"[RISK ASSESSMENT]");
-            writeLine(ws, L"Risk Level: " + risk.level);
-            writeLine(ws, L"Comment: " + risk.comment);
+            writeLine(ws, lt.riskAssessment);
+            writeLine(ws, lt.riskLevel + risk.level);
+            writeLine(ws, lt.riskComment + risk.comment);
             writeLine(ws);
 
-            // Type distribution
-            writeLine(ws, L"[SUSPICIOUS ITEM TYPE DISTRIBUTION]");
+            writeLine(ws, lt.itemTypeDistribution);
             if (totalEntries == 0) {
-                writeLine(ws, L"No suspicious entries detected.");
-            }
-            else {
+                writeLine(ws, lt.noSuspicious);
+            } else {
                 auto pct = [&](size_t c) -> std::wstring {
                     return formatDouble(100.0 * (static_cast<double>(c) / totalEntries), 2) + L"%";
-                    };
-                writeLine(ws, L"WORD: " + std::to_wstring(typeCounts[Analysis::SuspiciousItemType::WORD]) +
+                };
+                writeLine(ws, lt.wordLabel + L": " + std::to_wstring(typeCounts[Analysis::SuspiciousItemType::WORD]) +
                     L" (" + pct(typeCounts[Analysis::SuspiciousItemType::WORD]) + L")");
-                writeLine(ws, L"LINK: " + std::to_wstring(typeCounts[Analysis::SuspiciousItemType::LINK]) +
+                writeLine(ws, lt.linkLabel + L": " + std::to_wstring(typeCounts[Analysis::SuspiciousItemType::LINK]) +
                     L" (" + pct(typeCounts[Analysis::SuspiciousItemType::LINK]) + L")");
-                writeLine(ws, L"FILENAME: " + std::to_wstring(typeCounts[Analysis::SuspiciousItemType::FILENAME]) +
+                writeLine(ws, lt.filenameLabel + L": " + std::to_wstring(typeCounts[Analysis::SuspiciousItemType::FILENAME]) +
                     L" (" + pct(typeCounts[Analysis::SuspiciousItemType::FILENAME]) + L")");
-                writeLine(ws, L"UNKNOWN: " + std::to_wstring(typeCounts[Analysis::SuspiciousItemType::UNKNOWN]) +
+                writeLine(ws, lt.unknownLabel + L": " + std::to_wstring(typeCounts[Analysis::SuspiciousItemType::UNKNOWN]) +
                     L" (" + pct(typeCounts[Analysis::SuspiciousItemType::UNKNOWN]) + L")");
             }
             writeLine(ws);
 
-            writeLine(ws, L"[CATEGORY STATISTICS]");
+            writeLine(ws, lt.categoryStats);
             if (totalEntries == 0) {
-                writeLine(ws, L"No data.");
-            }
-            else {
-                // Ensure all categories appear even if 0
+                writeLine(ws, lt.noData);
+            } else {
                 for (auto& kv : kCategoryNames) {
                     if (categoryMap.find(kv.first) == categoryMap.end()) {
                         categoryMap[kv.first] = CategoryStats{};
                     }
                 }
 
-                // Sort categories by totalScore descending
                 std::vector<std::pair<BaseCategory, CategoryStats>> ordered(categoryMap.begin(), categoryMap.end());
                 std::sort(ordered.begin(), ordered.end(),
                     [](const auto& a, const auto& b) {
@@ -320,7 +463,7 @@ namespace Report {
                         L" | AvgScore: " +
                         (st.count ? formatDouble(st.totalScore / st.count, 2) : L"0"));
                     if (!st.examples.empty()) {
-                        std::wstring exLine = L"    Examples: ";
+                        std::wstring exLine = L"    " + lt.examples;
                         bool first = true;
                         size_t shown = 0;
                         for (const auto& ex : st.examples) {
@@ -330,9 +473,8 @@ namespace Report {
                             if (++shown >= st.examples.size()) break;
                         }
                         writeLine(ws, exLine);
-                    }
-                    else {
-                        writeLine(ws, L"    Examples: (none)");
+                    } else {
+                        writeLine(ws, L"    " + lt.examples + lt.none);
                     }
                 }
             }
@@ -340,9 +482,9 @@ namespace Report {
 
             if (options.includeTopEntries && !sortedByScore.empty()) {
                 size_t topCount = std::min(options.topEntriesCount, sortedByScore.size());
-                writeLine(ws, L"[TOP " + std::to_wstring(topCount) + L" HIGHEST-SCORING ENTRIES]");
-                size_t limit = std::min(options.topEntriesCount, sortedByScore.size());
-                for (size_t i = 0; i < limit; ++i) {
+                std::wstring topHeader = L"[TOP " + std::to_wstring(topCount) + L" " + lt.topEntries + L"]";
+                writeLine(ws, topHeader);
+                for (size_t i = 0; i < topCount; ++i) {
                     const auto* e = sortedByScore[i];
                     std::wstringstream line;
                     line << L"#" << (i + 1)
@@ -356,45 +498,51 @@ namespace Report {
             }
 
             if (options.includePerEntrySection) {
-                writeLine(ws, L"[DETAILED ENTRIES]");
+                writeLine(ws, lt.detailedEntries);
                 if (entries.empty()) {
-                    writeLine(ws, L"(No suspicious entries)");
-                }
-                else {
-                    // Copy & chronological sorting (by message date/time strings; fallback original order)
+                    writeLine(ws, options.language == Language::FR ? L"(Aucune entrée suspecte)" : L"(No suspicious entries)");
+                } else {
                     std::vector<const Analysis::SuspiciousEntry*> chronological(entries.size());
                     for (size_t i = 0; i < entries.size(); ++i) chronological[i] = &entries[i];
                     std::stable_sort(chronological.begin(), chronological.end(),
                         [](const Analysis::SuspiciousEntry* a, const Analysis::SuspiciousEntry* b) {
-                            // Simple lexical comparison of date+time (assumes ISO or consistent)
                             return (a->message.getDate() + L" " + a->message.getTime()) <
-                                (b->message.getDate() + L" " + b->message.getTime());
+                                   (b->message.getDate() + L" " + b->message.getTime());
                         });
 
                     size_t idx = 1;
                     for (const auto* e : chronological) {
                         std::wstringstream line;
-                        line << idx++ << L". [" << e->message.getDate() << L" " << e->message.getTime()
-                            << L"] Author=\"" << e->message.getAuthor()
-                            << L"\" Type=" << Analysis::toWString(e->itemType)
-                            << L" Score=" << formatDouble(e->score, 2)
-                            << L"\n    SuspiciousPart: \"" << e->suspiciousPart << L"\""
-                            << L"\n    Reason: " << e->reason
-                            << L"\n    MessageContent: " << e->message.getContent()
-                            << L"\n";
+                        if (options.language == Language::FR) {
+                            line << idx++ << L". [" << e->message.getDate() << L" " << e->message.getTime()
+                                << L"] Auteur=\"" << e->message.getAuthor()
+                                << L"\" Type=" << Analysis::toWString(e->itemType)
+                                << L" Score=" << formatDouble(e->score, 2)
+                                << L"\n    Élément suspect: \"" << e->suspiciousPart << L"\""
+                                << L"\n    Raison: " << e->reason
+                                << L"\n    Contenu du message: " << e->message.getContent()
+                                << L"\n";
+                        } else {
+                            line << idx++ << L". [" << e->message.getDate() << L" " << e->message.getTime()
+                                << L"] Author=\"" << e->message.getAuthor()
+                                << L"\" Type=" << Analysis::toWString(e->itemType)
+                                << L" Score=" << formatDouble(e->score, 2)
+                                << L"\n    SuspiciousPart: \"" << e->suspiciousPart << L"\""
+                                << L"\n    Reason: " << e->reason
+                                << L"\n    MessageContent: " << e->message.getContent()
+                                << L"\n";
+                        }
                         writeLine(ws, line.str());
                     }
                 }
             }
 
             writeLine(ws);
-            writeLine(ws, L"[DISCLAIMER]");
-            writeLine(ws, L"This analytical report is generated by an academic prototype.");
-            writeLine(ws, L"It may contain false positives or misclassifications. "
-                L"Manual expert review is recommended before any action.");
-            writeLine(ws, L"End of report.");
+            writeLine(ws, lt.disclaimerHeader);
+            writeLine(ws, lt.disclaimerBody1);
+            writeLine(ws, lt.disclaimerBody2);
+            writeLine(ws, lt.reportEnd);
 
-            // Write file in UTF-8 with BOM
             std::ofstream ofs(out, std::ios::binary | std::ios::trunc);
             if (!ofs.is_open()) {
                 Logger::instance().log(L"[Report] Failed to open output file: " + outputPath);

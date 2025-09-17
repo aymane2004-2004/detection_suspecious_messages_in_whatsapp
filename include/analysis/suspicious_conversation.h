@@ -76,6 +76,9 @@ namespace Analysis {
         std::map<SuspiciousItemType, int> countByType() const;
         std::optional<SuspiciousEntry> findBySuspiciousPart(const std::wstring& token) const;
 
+        // Count unique messages (uniqueness = combination of date, time, author, content, type)
+        size_t uniqueMessageCount() const;
+
         void clear() { entries.clear(); }
 
     private:

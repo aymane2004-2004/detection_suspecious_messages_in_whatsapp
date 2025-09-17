@@ -1,5 +1,6 @@
 #include "analysis/suspicious_conversation.h"
 #include "analysis/detector.h" // for lookupWordWeightBilingual & ReasonID mapping
+#include <unordered_set>
 
 namespace Analysis {
 
@@ -93,6 +94,25 @@ namespace Analysis {
             if (e.suspiciousPart == token)
                 return e;
         return std::nullopt;
+    }
+
+    size_t SuspiciousConversation::uniqueMessageCount() const {
+        std::unordered_set<std::wstring> uniq;
+        uniq.reserve(entries.size());
+        // Use an unlikely separator to build a composite key
+        constexpr wchar_t SEP = L'\x1F';
+        for (const auto& e : entries) {
+            const auto& m = e.message;
+            std::wstring key;
+            key.reserve(m.getDate().size() + m.getTime().size() + m.getAuthor().size() + m.getContent().size() + 16);
+            key.append(m.getDate()).push_back(SEP);
+            key.append(m.getTime()).push_back(SEP);
+            key.append(m.getAuthor()).push_back(SEP);
+            key.append(m.getContent()).push_back(SEP);
+            key.append(std::to_wstring(static_cast<int>(m.getType())));
+            uniq.insert(std::move(key));
+        }
+        return uniq.size();
     }
 
     std::wstring toWString(SuspiciousItemType t) {

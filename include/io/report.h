@@ -7,16 +7,22 @@
 
 namespace Report {
 
+    enum class Language {
+        EN,
+        FR
+    };
+
     struct ReportGenerationOptions {
         size_t totalMessagesInConversation = 0; // Total messages (all, not only suspicious). 0 = unknown.
         size_t maxExamplesPerCategory = 5;
         bool   includePerEntrySection = true;
         bool   includeTopEntries = true;
         size_t topEntriesCount = 10;
+        Language language = Language::EN; // Choix de la langue du rapport
     };
 
-    // Generate a textual analytical report (UTF-8) about a SuspiciousConversation.
-    // Returns true on success.
+    // Génère un rapport analytique textuel (UTF-8) sur une conversation suspecte.
+    // Retourne true en cas de succès.
     bool generateReport(const Analysis::SuspiciousConversation& suspicious,
         const std::wstring& outputPath,
         const ReportGenerationOptions& options = {});

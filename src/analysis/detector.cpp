@@ -13,6 +13,32 @@
 
 namespace Analysis {
 
+    // ------------------------------------------------------------------
+    // SCORING BOOST CONFIG (Added to increase danger weighting)
+    // ------------------------------------------------------------------
+    namespace {
+        // Base multipliers per detection source
+        constexpr double WORD_BASE_MULTIPLIER         = 2.5;  // normal message words
+        constexpr double TEXTFILE_WORD_MULTIPLIER     = 2.0;  // words found inside text files
+        constexpr double LINK_BASE_MULTIPLIER         = 1.6;  // suspicious link aggregate score
+        constexpr double FILENAME_BASE_MULTIPLIER     = 1.3;  // filename aggregate score
+
+        // Extra severity factor per base ReasonID (1..8) – tuned to push higher risk content upwards.
+        inline double severityFactor(int baseRID) {
+            switch (baseRID) {
+            case 1: return 1.6; // Sexual
+            case 2: return 1.5; // Violence
+            case 3: return 1.7; // Hate speech
+            case 4: return 1.4; // Drugs
+            case 5: return 1.5; // Scam
+            case 6: return 1.8; // Self harm
+            case 7: return 1.2; // Profanity
+            case 8: return 1.9; // Extremist
+            default: return 1.0;
+            }
+        }
+    }
+
     std::string wideToLowerUtf8(const std::wstring& ws) {
         if (ws.empty()) return {};
         int utf8Len = ::WideCharToMultiByte(CP_UTF8, 0, ws.data(),
@@ -144,18 +170,21 @@ namespace Analysis {
 
             for (const auto& rawToken : tokens) {
                 int rid = 0;
-                double weight = weightForToken(rawToken, rid);
-                if (weight <= 0.0 || rid == static_cast<int>(ReasonID::NONE))
+                double baseWeight = weightForToken(rawToken, rid);
+                if (baseWeight <= 0.0 || rid == static_cast<int>(ReasonID::NONE))
                     continue;
+
+                int baseRID = (rid >= 100) ? (rid - 100) : rid;
+                double adjustedWeight = baseWeight * WORD_BASE_MULTIPLIER * severityFactor(baseRID);
 
                 std::wstring reason = reasonFromRID(rid);
                 outSuspicious.add(msg,
                     rawToken,
                     reason,
-                    weight,
+                    adjustedWeight,
                     rid,
                     SuspiciousItemType::WORD);
-                messageAccumulated += weight;
+                messageAccumulated += adjustedWeight;
             }
 
             if (messageAccumulated > 0.0) {
@@ -188,17 +217,14 @@ namespace Analysis {
             return lower.rfind(L".txt") == lower.size() - 4;
             };
 
-        // NEW: extract real filename from patterns like "a.txt (file attached)"
         auto extractTxtFilename = [](const std::wstring& raw) -> std::optional<std::wstring> {
             if (raw.empty()) return std::nullopt;
             std::wstring lower = raw;
             std::transform(lower.begin(), lower.end(), lower.begin(), [](wchar_t c) { return std::towlower(c); });
             size_t pos = lower.find(L".txt");
             if (pos == std::wstring::npos) return std::nullopt;
-            pos += 4; // include ".txt"
+            pos += 4;
             std::wstring candidate = raw.substr(0, pos);
-
-            // trim spaces
             size_t start = 0;
             while (start < candidate.size() && iswspace(candidate[start])) ++start;
             size_t end = candidate.size();
@@ -319,9 +345,12 @@ namespace Analysis {
                         continue;
 
                     int rid = 0;
-                    double w = weightForToken(tok, rid);
-                    if (w <= 0.0 || rid == static_cast<int>(ReasonID::NONE))
+                    double baseWeight = weightForToken(tok, rid);
+                    if (baseWeight <= 0.0 || rid == static_cast<int>(ReasonID::NONE))
                         continue;
+
+                    int baseRID = (rid >= 100) ? (rid - 100) : rid;
+                    double adjusted = baseWeight * TEXTFILE_WORD_MULTIPLIER * severityFactor(baseRID);
 
                     std::wstring reason = L"Text file word: " + reasonFromRID(rid) +
                         L" (file " + cleanFilename + L")";
@@ -329,11 +358,11 @@ namespace Analysis {
                     outSuspicious.add(msg,
                         tok,
                         reason,
-                        w,
+                        adjusted,
                         rid,
                         SuspiciousItemType::WORD);
 
-                    accumulatedScore += w;
+                    accumulatedScore += adjusted;
                 }
             }
 
@@ -448,6 +477,9 @@ namespace Analysis {
                 }
 
                 if (totalScore > 0.0) {
+                    // Apply global link multiplier
+                    totalScore *= LINK_BASE_MULTIPLIER;
+
                     std::wstringstream reason;
                     reason << L"Suspicious link patterns: ";
                     for (size_t i = 0; i < matchedNames.size(); ++i) {
@@ -594,7 +626,9 @@ namespace Analysis {
                     if (w <= 0.0 || rid == static_cast<int>(ReasonID::NONE))
                         continue;
                     anyWord = true;
-                    totalScore += (w * 10.0);
+                    int baseRID = (rid >= 100) ? (rid - 100) : rid;
+                    // Original amplification *10. Added severity factor.
+                    totalScore += (w * 10.0 * severityFactor(baseRID));
                     reasonTags.insert(reasonFromRID(rid));
                 }
 
@@ -605,6 +639,9 @@ namespace Analysis {
                 }
 
                 if (totalScore > 0.0) {
+                    // Apply filename multiplier after aggregation
+                    totalScore *= FILENAME_BASE_MULTIPLIER;
+
                     std::wstringstream reason;
                     reason << L"Filename analysis: ";
                     if (anyWord) reason << L"suspicious words; ";
@@ -660,7 +697,7 @@ namespace Analysis {
         const size_t total = steps.size();
         for (size_t i = 0; i < total; ++i) {
             steps[i].run();
-            int progress = static_cast<int>( ( (i + 1.0) / total ) * 100.0 );
+            int progress = static_cast<int>(((i + 1.0) / total) * 100.0);
             if (progress > 100) progress = 100;
             Parser::displayProgressBar(progress);
         }
