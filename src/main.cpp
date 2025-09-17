@@ -15,17 +15,25 @@
 #include <windows.h>
 #include <cstdlib>
 #include <shobjidl.h> // For IFileDialog
-#include <filesystem>  // Ensure this is included before usage
-#include <thread>   // pour std::this_thread::sleep_for
-#include <chrono>   // pour std::chrono::seconds, milliseconds, etc.
+#include <filesystem>
+#include <thread>
+#include <chrono>
 #include <map>
-#include <iomanip>  // For std::setw
+#include <iomanip>
+#include <sstream>
 
+// Simple helper to log wide messages
+inline void LogEvent(const std::wstring& msg) {
+    Logger::instance().log(msg);
+}
 
 void printMenu(int& step, int& choice) {
+    int originalStep = step;
+	int maxStep = 4;
+
     std::system("cls");
 	int maxPossibleChoice = 0;
-	std::cout << "                         " << step << "/4\n";
+	std::cout << "                         " << step << "/" << maxStep << "\n";
     std::cout << "=======================================================\n";
     std::cout << "        WhatsApp Detection Suspecious Messages\n";
     std::cout << "=======================================================\n";
@@ -62,15 +70,28 @@ void printMenu(int& step, int& choice) {
     std::cout << "=======================================================\n";
     std::cout << "Votre choix : ";
     std::cin >> choice;
-    if (choice == 0) step = 0;
-    else if (choice == -1 && step > 1) { step--;}
+    Logger::instance().log(L"Choix utilisateur au step " + std::to_wstring(originalStep) + L": " + std::to_wstring(choice));
+
+    if (choice == 0) {
+        step = 0;
+    }
+    else if (choice == -1 && step > 1) { 
+        step--;
+    }
     else if (choice < 0 || choice > maxPossibleChoice) {
 		std::cout << "Choix invalide. Ressayez." << std::endl;
+        Logger::instance().log(L"Choix invalide saisi: " + std::to_wstring(choice) + L" au step " + std::to_wstring(originalStep));
 		std::system("pause");
 		printMenu(step, choice);
+        return;
     }
-	else if (choice > 0 && choice <= maxPossibleChoice && step < 4) 
-        if (step != 1 || choice !=2) step++;
+	else if (choice > 0 && choice <= maxPossibleChoice && step < maxStep) {
+        if (step != 1 || choice != 2) step++;
+    }
+
+    if (step != originalStep) {
+        Logger::instance().log(L"Changement de step: " + std::to_wstring(originalStep) + L" -> " + std::to_wstring(step));
+    }
 }
 
 // Function to open a folder selection dialog and return the selected path as std::wstring
@@ -103,6 +124,7 @@ std::wstring SelectFolderDialog() {
         }
         CoUninitialize();
     }
+    Logger::instance().log(folderPath.empty() ? L"Aucun dossier sélectionné." : L"Dossier sélectionné: " + folderPath);
     return folderPath;
 }
 
@@ -110,89 +132,80 @@ std::wstring SelectFolderDialog() {
 std::wstring FindMatchingTextFile(const std::wstring& folderPath) {
     std::filesystem::path path(folderPath);
     std::wstring folderName = path.filename().wstring();
-    
-    // Look for file with the same name as the folder but with .txt extension
     std::wstring textFilePath = folderPath + L"\\" + folderName + L".txt";
-    
-    if (std::filesystem::exists(textFilePath)) {
-        return textFilePath;
-    }
-    
-    return L""; // Return empty string if no matching file found
+    bool exists = std::filesystem::exists(textFilePath);
+    Logger::instance().log(exists ? L"Fichier texte correspondant trouvé: " + textFilePath
+                                  : L"Aucun fichier texte correspondant trouvé pour: " + folderName);
+    if (exists) return textFilePath;
+    return L"";
 }
 
 int main() {
     SetConsoleOutputCP(CP_UTF8);
-	// message de bienvenue
-    /*char welcomeMessage[] = "Ceci est un project academic open-source\nVous pouvez trouver le code source sur ce lien:\ngithub.com\n";
-    for (char c : welcomeMessage) {
-        if (c == '\n')
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        std::cout << c << std::flush;
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
-	}
-    std::system("pause");
-	std::system("cls");*/
-    
-    // variable pour les etapes
+    LogEvent(L"Application démarrée.");
+	// Parameters for menu navigation
     int step = 1;
     int choice = 0;
-    // parametres du scan
-    std::wstring selectedFolderPath = L"empty"; // Variable to store the selected folder path
-    std::wstring matchingTextFilePath = L"empty"; // Variable to store the path to the text file with the same name
+	// Parameters and state
+    std::wstring selectedFolderPath = L"empty";
+    std::wstring matchingTextFilePath = L"empty";
     Conversation conversation;
     enum Langage { ENGLISH = 1, FRENCH = 2, BOTH_LANGAGE = 3 };
     enum Content { CONVERSATION = 1, LINK = 2, METADATA = 3, DOCUMENT = 4, ALL_CONTENT = 5 };
     Langage langageToScan = Langage::ENGLISH;
     Content contentToScan = Content::CONVERSATION;
-	// detection results
+	// Analysis structures
 	Analysis::SuspiciousConversation suspiciousConversation;
     Analysis::DetectionEngine engine;
     Analysis::DetectionLanguage Lang =
         (langageToScan == Langage::ENGLISH) ? Analysis::DetectionLanguage::EN :
         (langageToScan == Langage::FRENCH) ? Analysis::DetectionLanguage::FR :
         Analysis::DetectionLanguage::BOTH;
-	
+	// logging variables
+    std::chrono::steady_clock::time_point startTime;
+    std::chrono::steady_clock::time_point endTime;
+    long long ms = 0;
 
     do {
         switch (step) {
         case 0:
+            LogEvent(L"Application terminée (demande de sortie).");
 			return 0;
-		//step 1
         case 1:
 			printMenu(step, choice);
             if (choice == 1) {
-                // Réinitialiser avant un nouvel import
+                // Reset before new import
+                LogEvent(L"Réinitialisation des structures pour nouvel import.");
                 conversation.clear();
                 suspiciousConversation.clear();
                 engine.reset();
 
                 std::wcout << L"Une fenêtre s'est ouverte, sélectionnez le dossier exporté depuis WhatsApp.\n\n";
-
-                // Open folder selection dialog and store the path
+                LogEvent(L"Ouverture de la boîte de dialogue de sélection de dossier.");
                 selectedFolderPath = SelectFolderDialog();
                 if (selectedFolderPath.empty()) {
                     std::wcout << L"Aucun dossier sélectionné. Ressayez.\n";
+                    LogEvent(L"Echec: aucun dossier sélectionné.");
                     std::system("pause");
                     step--;
                     break;
                 }
 
-                // Check if the folder name starts with "WhatsApp Chat with"
                 std::filesystem::path folderPath(selectedFolderPath);
                 std::wstring folderName = folderPath.filename().wstring();
                 if (folderName.rfind(L"WhatsApp Chat with", 0) != 0) {
                     std::wcout << L"Erreur : Le dossier sélectionné n'est pas en anglais ou est invalide.\n";
                     std::wcout << L"Le nom du dossier doit commencer par \"WhatsApp Chat with\".\n";
+                    LogEvent(L"Echec: nom de dossier invalide -> " + folderName);
                     std::system("pause");
                     step--;
                     break;
                 }
 
-                // Find a text file with the same name as the folder
                 matchingTextFilePath = FindMatchingTextFile(selectedFolderPath);
                 if (matchingTextFilePath.empty()) {
                     std::wcout << L"Erreur : Aucun fichier texte portant le même nom que le dossier n'a été trouvé.\n";
+                    LogEvent(L"Echec: fichier texte principal introuvable.");
                     std::system("pause");
                     step--;
                     break;
@@ -202,17 +215,18 @@ int main() {
                 std::wcout << L"Dossier sélectionné : " << selectedFolderPath << L"\n";
                 std::wcout << L"Fichier texte trouvé : " << matchingTextFilePath << L"\n\n";
 
-                // Parse the WhatsApp chat file into a Conversation object
+                LogEvent(L"Parsing du fichier WhatsApp: " + matchingTextFilePath);
                 bool parseSuccess = Parser::parseWhatsAppChat(matchingTextFilePath, conversation);
 
                 if (!parseSuccess) {
                     std::wcout << L"Erreur : Impossible de parser le fichier de conversation WhatsApp.\n";
+                    LogEvent(L"Echec parsing conversation.");
                     std::system("pause");
                     step--;
                     break;
                 }
 
-                // Display basic conversation stats
+                LogEvent(L"Conversation chargée. Total messages: " + std::to_wstring(conversation.getMessages().size()));
                 std::wcout << L"Conversation chargée avec succès.\n";
                 std::map<MessageType, int> messageCounts = conversation.countMessagesByType();
 
@@ -228,11 +242,12 @@ int main() {
                 std::wcout << L"  - Documents           : " << std::setw(5) << messageCounts[MessageType::DOCUMENT] << L"\n";
                 std::wcout << L"  - Types inconnus      : " << std::setw(5) << messageCounts[MessageType::UNKNOWN] << L"\n\n";
 
+                LogEvent(L"Statistiques messages enregistrées.");
                 std::this_thread::sleep_for(std::chrono::seconds(1));
                 std::system("pause");
-
             }
             else if (choice == 2) {
+                LogEvent(L"Affichage tutoriel export WhatsApp demandé.");
                 std::system("cls");
                 std::cout << "\nTutoriel pour extraire les messages WhatsApp en anglais :\n";
                 std::cout << " 1. Ouvrez WhatsApp sur votre téléphone.\n";
@@ -247,95 +262,172 @@ int main() {
                 std::cout << "10. Selectioner le dossier dans cette l'application.\n";
                 std::cout << "Pour plus de détails :\n";
                 std::cout << "youtube.com\n";
+                LogEvent(L"Fin affichage tutoriel (sortie application).");
                 std::system("pause");
                 return 0;
             }
-
-
 			break;
-        //step 2
+
         case 2:
             printMenu(step, choice);
             if (choice == -1 && step > 1) { break; }
             langageToScan = (Langage)choice;
+            Lang =
+                (langageToScan == Langage::ENGLISH) ? Analysis::DetectionLanguage::EN :
+                (langageToScan == Langage::FRENCH) ? Analysis::DetectionLanguage::FR :
+                Analysis::DetectionLanguage::BOTH;
+            LogEvent(L"Sélection langue scan: " + std::to_wstring(choice));
             std::wcout << L"\n\n";
             break;
-		//step 3
+
 		case 3:
             printMenu(step, choice);
             if (choice == -1 && step > 1) { break; }
             contentToScan = (Content)choice;
+            LogEvent(L"Début détection. Type de contenu: " + std::to_wstring(choice));
             std::system("cls");
 
-            
-            // Réinitialiser résultats + état moteur
             suspiciousConversation.clear();
             engine.reset();
+            LogEvent(L"Etat moteur réinitialisé.");
 
             std::wcout << L"Détection en cours...\n";
+            
             switch (contentToScan) {
             case Content::CONVERSATION:
+                startTime = std::chrono::steady_clock::now();
                 engine.detectSuspiciousWords(conversation, suspiciousConversation, Lang);
+                endTime = std::chrono::steady_clock::now();
+                ms = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+                LogEvent(L"detectSuspiciousWords exécuté.");
                 break;
             case Content::LINK:
-				engine.detectSuspiciousLinks(conversation, suspiciousConversation);
+                startTime = std::chrono::steady_clock::now();
+                engine.detectSuspiciousLinks(conversation, suspiciousConversation);
+                endTime = std::chrono::steady_clock::now();
+                ms = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+                LogEvent(L"detectSuspiciousLinks exécuté.");
                 break;
             case Content::METADATA:
+                startTime = std::chrono::steady_clock::now();
                 engine.detectSuspiciousFilenames(conversation, suspiciousConversation, Lang);
+                endTime = std::chrono::steady_clock::now();
+                ms = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+                LogEvent(L"detectSuspiciousFilenames exécuté.");
                 break;
             case Content::DOCUMENT:
-                engine.detectSuspiciousWordsInTextFiles(conversation, suspiciousConversation,
-                    selectedFolderPath, Lang);
+                startTime = std::chrono::steady_clock::now();
+                engine.detectSuspiciousWordsInTextFiles(conversation, suspiciousConversation, selectedFolderPath, Lang);
+                endTime = std::chrono::steady_clock::now();
+                ms = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+                LogEvent(L"detectSuspiciousWordsInTextFiles exécuté.");
                 break;
             case Content::ALL_CONTENT:
+                startTime = std::chrono::steady_clock::now();
                 engine.detectAll(conversation, suspiciousConversation, selectedFolderPath, Lang, true);
+                endTime = std::chrono::steady_clock::now();
+                ms = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+                LogEvent(L"detectAll exécuté.");
                 break;
             }
-
-			std::wcout << L"Détection terminée.\n";
-			std::system("pause");
-
-            
-
+            std::wcout << L"Détection terminée.\n";
+            LogEvent(L"Détection terminée en " + std::to_wstring(ms) + L" ms. Nombre éléments suspects: " +
+                     std::to_wstring(suspiciousConversation.size()));
+            std::system("pause");
 			break;
-        //step 4
+
         case 4:
             printMenu(step, choice);
             if (choice == -1 && step > 1) { break; }
             if (choice == 1) {
-                // Exporter tous les messages vers CSV
                 std::wstring csvPath = selectedFolderPath + L"\\exported_messages.csv";
+                LogEvent(L"Export CSV (tous les messages) -> " + csvPath);
                 bool exportSuccess = Exporter::exportToCSV(conversation, csvPath);
                 if (exportSuccess) {
                     std::wcout << L"Messages exportés avec succès vers : " << csvPath << L"\n";
-                }
-                else {
+                    LogEvent(L"Succès export tous messages.");
+                } else {
                     std::wcout << L"Erreur lors de l'exportation des messages.\n";
+                    LogEvent(L"Echec export tous messages.");
                 }
                 std::this_thread::sleep_for(std::chrono::seconds(2));
 				std::system("pause");
             }
             else if (choice == 2) {
-                // Exporter seulement les messages suspects vers CSV
                 std::wstring csvPath = selectedFolderPath + L"\\suspicious_messages.csv";
+                LogEvent(L"Export CSV (messages suspects) -> " + csvPath);
                 bool exportSuccess = Exporter::exportSuspiciousToCSV(suspiciousConversation, csvPath);
                 if (exportSuccess) {
                     std::wcout << L"Messages suspects exportés avec succès vers : " << csvPath << L"\n";
-                }
-                else {
+                    LogEvent(L"Succès export messages suspects.");
+                } else {
                     std::wcout << L"Erreur lors de l'exportation des messages suspects.\n";
+                    LogEvent(L"Echec export messages suspects.");
                 }
                 std::this_thread::sleep_for(std::chrono::seconds(2));
+                std::system("pause");
+            }
+            else if (choice == 3) {
+                // Save logs now
+                std::wstring defaultPath;
+                if (selectedFolderPath != L"empty")
+                    defaultPath = selectedFolderPath + L"\\session_log.txt";
+                else
+                    defaultPath = L"session_log.txt";
+
+                Logger::instance().setOutputFile(defaultPath);
+                bool ok = Logger::instance().flush();
+                if (ok) {
+                    std::wcout << L"Logs sauvegardés dans : " << defaultPath << L"\n";
+                    LogEvent(L"(Post-flush) Les logs ont été écrits sur disque."); // This will sit in buffer until another flush.
+                } else {
+                    std::wcout << L"Erreur: impossible de sauvegarder les logs.\n";
+                    LogEvent(L"Echec sauvegarde logs vers " + defaultPath);
+                }
+                std::system("pause");
+            }
+            else if (choice == 4) {
+                // Generate analytical report
+                if (selectedFolderPath == L"empty") {
+                    std::wcout << L"Erreur: aucun dossier sélectionné. Retournez à l'étape 1.\n";
+                    LogEvent(L"Rapport: dossier non défini.");
+                    std::system("pause");
+                    break;
+                }
+
+                std::wstring reportPath = selectedFolderPath + L"\\scan_report.txt";
+                Report::ReportGenerationOptions opts;
+                opts.totalMessagesInConversation = conversation.getMessages().size();
+                opts.maxExamplesPerCategory = 5;
+                opts.includePerEntrySection = true;
+                opts.includeTopEntries = true;
+                opts.topEntriesCount = 15; // Slightly more than default for richer context
+
+                LogEvent(L"Generation du rapport -> " + reportPath);
+                bool ok = Report::generateReport(suspiciousConversation, reportPath, opts);
+                if (ok) {
+                    std::wcout << L"Rapport généré : " << reportPath << L"\n";
+                    if (suspiciousConversation.size() == 0) {
+                        std::wcout << L"(Note: aucun élément suspect détecté, le rapport contient seulement un résumé.)\n";
+                    }
+                    LogEvent(L"Rapport généré avec succès.");
+                } else {
+                    std::wcout << L"Erreur: génération du rapport échouée.\n";
+                    LogEvent(L"Echec génération rapport.");
+                }
                 std::system("pause");
             }
             break;
         default:
 			std::wcout << "choix du step invalide. Arrêt du programme." << std::endl;
+            LogEvent(L"Etat interne invalide: step=" + std::to_wstring(step));
             std::this_thread::sleep_for(std::chrono::seconds(2));
             step = 0;
 			break;
         }
     } while (step);
 
+    LogEvent(L"Fin normale du programme.");
+    // If user never saved logs, they remain in memory; optional auto-save could be added here.
     return 0;
 }
