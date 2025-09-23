@@ -42,6 +42,13 @@
     <ClInclude Include="include\io\report.h" />
     <ClInclude Include="include\utils\file_utils.h" />
     <ClInclude Include="include\utils\wstring_utils.h" />
+    <ClInclude Include="resource1.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="detection_suspecious_messages_in_whatsapp.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="logo.ico" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

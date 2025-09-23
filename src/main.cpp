@@ -197,6 +197,17 @@ void CreateAnalysisOutputFolder(const std::wstring& selectedFolderPath,
 
 int main() {
     SetConsoleOutputCP(CP_UTF8);
+    // message de bienvenue
+    char welcomeMessage[] = "Ceci est un project academic open-source\nVous pouvez trouver le code source sur ce lien:\nhttps://github.com/aymane2004-2004/detection_suspecious_messages_in_whatsapp\n";
+    for (char c : welcomeMessage) {
+        if (c == '\n')
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::cout << c << std::flush;
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    std::system("pause");
+    std::system("cls");
+
     LogEvent(L"Application démarrée.");
     int step = 1;
     int choice = 0;
@@ -326,7 +337,7 @@ int main() {
                 std::cout << " 9. Decompresser le fichier zip.\n";
                 std::cout << "10. Selectioner le dossier dans cette l'application.\n";
                 std::cout << "Pour plus de détails :\n";
-                std::cout << "youtube.com\n";
+                std::cout << "https://github.com/aymane2004-2004/detection_suspecious_messages_in_whatsapp\n";
                 LogEvent(L"Fin affichage tutoriel (sortie application).");
                 std::system("pause");
                 return 0;
